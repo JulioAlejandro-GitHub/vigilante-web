@@ -1,6 +1,6 @@
 # vigilante-web
 
-Primer slice funcional de UI operativa para analistas, consumiendo los endpoints actuales de `vigilante-api`.
+UI operativa para analistas que consume los endpoints actuales de `vigilante-api`.
 
 ## Stack
 
@@ -11,7 +11,7 @@ Primer slice funcional de UI operativa para analistas, consumiendo los endpoints
 - React Router
 - Fetch API
 
-## Variables de entorno
+## Configuración
 
 Crear `.env` desde `.env.example`:
 
@@ -25,7 +25,7 @@ Valor esperado para desarrollo local:
 VITE_API_BASE_URL=http://127.0.0.1:8000
 ```
 
-En modo dev, Vite proxy reenvia `/api/*` y `/health` a `VITE_API_BASE_URL` para evitar problemas de CORS mientras `vigilante-api` no tenga auth/CORS completo.
+En modo dev, Vite reenvía `/api/*` y `/health` a `VITE_API_BASE_URL`.
 
 ## Requisitos
 
@@ -58,7 +58,7 @@ npm run test
 npm run build
 ```
 
-## Rutas UI
+## Rutas
 
 - `/` redirige a `/dashboard`
 - `/dashboard`
@@ -68,21 +68,28 @@ npm run build
 - `/case-suggestions`
 - `/timeline`
 
-## Funcionalidad implementada
+## Slice 2
 
-### Dashboard
+### Navegación
 
-Consume `GET /api/v1/dashboard/summary` y muestra:
+- App shell con sidebar en desktop.
+- Drawer de navegación en móvil.
+- Indicador visual de ruta activa.
 
-- casos abiertos
-- casos under_review
-- manual reviews pendientes
-- case suggestions pendientes
-- totales de casos asignados/no asignados
+### Filtros persistentes
+
+Las vistas principales sincronizan filtros con query params:
+
+- `/cases`
+- `/manual-reviews`
+- `/case-suggestions`
+- `/timeline`
+
+Esto conserva filtros, orden y paginación al volver desde un detalle o compartir una URL.
 
 ### Cases
 
-Consume `GET /api/v1/cases` con filtros:
+Consume `GET /api/v1/cases` con:
 
 - `status`
 - `assigned_to`
@@ -95,7 +102,7 @@ Consume `GET /api/v1/cases` con filtros:
 - `sort_by`
 - `sort_order`
 
-El listado muestra título, tipo, estado, prioridad, severidad, owner y fecha de apertura.
+La vista usa tabla en desktop y cards en móvil/tablet angosto.
 
 ### Case detail
 
@@ -107,7 +114,7 @@ Consume:
 - `GET /api/v1/cases/{case_id}/reviews`
 - `GET /api/v1/cases/{case_id}/suggestions`
 
-Acciones disponibles:
+Acciones disponibles con validación básica y refresh posterior:
 
 - asignar caso
 - desasignar caso
@@ -118,29 +125,44 @@ Acciones disponibles:
 
 ### Manual reviews
 
-Consume `GET /api/v1/manual-reviews` y permite resolver con:
+Consume:
 
+- `GET /api/v1/manual-reviews`
+- `GET /api/v1/manual-reviews/{review_id}`
 - `POST /api/v1/manual-reviews/{review_id}/resolve`
 
-Para `identity_conflict` se muestra el campo adicional de resolución de identidad.
+Soporta filtros por URL, listado responsive, detalle lateral y campos condicionales para `identity_conflict`.
 
 ### Case suggestions
 
-Consume `GET /api/v1/case-suggestions` y permite:
+Consume:
 
-- resolver suggestion
-- promover suggestion a caso
+- `GET /api/v1/case-suggestions`
+- `GET /api/v1/case-suggestions/{suggestion_id}`
+- `POST /api/v1/case-suggestions/{suggestion_id}/resolve`
+- `POST /api/v1/case-suggestions/{suggestion_id}/promote`
+
+Incluye filtros por URL, detalle lateral, resolución y promoción con campos mínimos editables.
 
 ### Timeline
 
-Consume `GET /api/v1/timeline` como vista de auditoría general.
+Consume `GET /api/v1/timeline` con filtros por:
+
+- `event_type`
+- `case_id`
+- `camera_id`
+- `subject_id`
+- `limit`
+
+Los eventos muestran tipo, severidad, fecha, resumen y link al caso si existe `case_id`.
 
 ## Pendientes
 
 - auth real
 - RBAC
 - CORS/configuración productiva en API
-- diseño de navegación por tenant/organización
+- usuario actual desde sesión
 - vistas dedicadas para media/evidencia
 - realtime con SSE/websocket
-- formularios más estrictos por tipo de review/suggestion
+- validación más específica por tipo de review/suggestion
+- edición avanzada de casos

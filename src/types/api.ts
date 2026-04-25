@@ -148,3 +148,13 @@ export interface QueueListParams {
   limit?: number;
   offset?: number;
 }
+
+export interface TimelineListParams {
+  event_type?: string;
+  camera_id?: string;
+  subject_id?: string;
+  organization_id?: string;
+  site_id?: string;
+  case_id?: string;
+  limit?: number;
+}

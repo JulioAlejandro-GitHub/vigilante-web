@@ -9,6 +9,7 @@ import type {
   HealthResponse,
   ManualReview,
   QueueListParams,
+  TimelineListParams,
   TimelineEvent,
 } from "../types/api";
 
@@ -100,7 +101,7 @@ export const api = {
   promoteCaseSuggestion: (suggestionId: string, payload: PromoteCaseSuggestionPayload) =>
     postJson<CaseRecord>(`/api/v1/case-suggestions/${suggestionId}/promote`, payload),
 
-  listTimeline: (params: { event_type?: string; limit?: number }) =>
+  listTimeline: (params: TimelineListParams) =>
     getJson<TimelineEvent[]>(`/api/v1/timeline${buildQueryString(params)}`),
   getTimelineEvent: (sourceEventId: string) => getJson<TimelineEvent>(`/api/v1/timeline/${sourceEventId}`),
 };

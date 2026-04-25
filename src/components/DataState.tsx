@@ -1,19 +1,22 @@
+import { EmptyState } from "./feedback/EmptyState";
+import { ErrorState } from "./feedback/ErrorState";
+import { LoadingState } from "./feedback/LoadingState";
+
 interface DataStateProps {
   loading: boolean;
   error: string | null;
+  onRetry?: () => void;
   children: React.ReactNode;
 }
 
-export function DataState({ loading, error, children }: DataStateProps) {
+export function DataState({ loading, error, onRetry, children }: DataStateProps) {
   if (loading) {
-    return <div className="panel p-4 text-sm text-zinc-600">Loading…</div>;
+    return <LoadingState />;
   }
   if (error) {
-    return <div className="panel border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>;
+    return <ErrorState message={error} onRetry={onRetry} />;
   }
   return <>{children}</>;
 }
 
-export function EmptyState({ label }: { label: string }) {
-  return <div className="rounded border border-dashed border-zinc-300 p-4 text-sm text-zinc-500">{label}</div>;
-}
+export { EmptyState };

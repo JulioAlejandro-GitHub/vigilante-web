@@ -23,13 +23,13 @@ export function statusTone(value: string | null | undefined): StatusBadgeProps["
   if (!value) {
     return "default";
   }
-  if (["approved", "accepted", "resolved", "open", "reopened"].includes(value)) {
+  if (["approved", "accepted", "resolved", "open", "reopened", "low"].includes(value)) {
     return "success";
   }
-  if (["pending", "in_review", "under_review", "deferred"].includes(value)) {
+  if (["pending", "in_review", "under_review", "deferred", "medium"].includes(value)) {
     return "warning";
   }
-  if (["rejected", "closed", "dismissed"].includes(value)) {
+  if (["rejected", "closed", "dismissed", "high", "critical"].includes(value)) {
     return "danger";
   }
   return "info";

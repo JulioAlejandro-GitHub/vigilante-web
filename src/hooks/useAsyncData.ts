@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+
+import { useRefreshKey } from "./useRefreshKey";
 
 export function useAsyncData<T>(loader: () => Promise<T>, deps: React.DependencyList) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [refreshIndex, setRefreshIndex] = useState(0);
-
-  const refresh = useCallback(() => setRefreshIndex((value) => value + 1), []);
+  const { refreshKey, refresh } = useRefreshKey();
 
   useEffect(() => {
     let active = true;
@@ -34,7 +34,7 @@ export function useAsyncData<T>(loader: () => Promise<T>, deps: React.Dependency
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, refreshIndex]);
+  }, [...deps, refreshKey]);
 
   return { data, loading, error, refresh };
 }
