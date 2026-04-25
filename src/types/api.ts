@@ -131,6 +131,8 @@ export interface CaseListParams {
   priority?: string;
   severity?: string;
   case_type?: string;
+  organization_id?: string;
+  site_id?: string;
   q?: string;
   limit?: number;
   offset?: number;

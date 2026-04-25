@@ -2,10 +2,15 @@ import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
 
+import { useCurrentUser } from "../../context/CurrentUserContext";
 import { Sidebar } from "../navigation/Sidebar";
+
+const userOptions = ["julio", "ana", "camila"];
 
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { currentUser, setCurrentUserName } = useCurrentUser();
+  const options = userOptions.includes(currentUser.username) ? userOptions : [currentUser.username, ...userOptions];
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -23,9 +28,21 @@ export function AppShell() {
               <div className="text-sm font-semibold text-zinc-950">Operations workspace</div>
               <div className="truncate text-xs text-zinc-500">Cases, queues and audit timeline</div>
             </div>
-            <div className="hidden text-right text-xs text-zinc-500 sm:block">
-              <div className="font-medium text-zinc-700">Analyst</div>
-              <div>julio</div>
+            <div className="hidden items-center gap-2 sm:flex">
+              <label className="text-right text-xs text-zinc-500">
+                <span className="block font-medium text-zinc-700">Current user</span>
+                <select
+                  className="mt-1 rounded border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900"
+                  value={currentUser.username}
+                  onChange={(event) => setCurrentUserName(event.target.value)}
+                >
+                  {options.map((username) => (
+                    <option key={username} value={username}>
+                      {username}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
           </div>
         </header>

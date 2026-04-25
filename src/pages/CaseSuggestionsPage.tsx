@@ -1,6 +1,6 @@
 import { RefreshCw } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import { api } from "../api/vigilanteApi";
 import { DataState, EmptyState } from "../components/DataState";
@@ -10,7 +10,9 @@ import { FormField } from "../components/forms/FormField";
 import { KeyValue } from "../components/KeyValue";
 import { PageHeader } from "../components/PageHeader";
 import { PaginationControls } from "../components/PaginationControls";
+import { QueueActionPanel } from "../components/queues/QueueActionPanel";
 import { StatusBadge, statusTone } from "../components/StatusBadge";
+import { useCurrentUser } from "../context/CurrentUserContext";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useQueryParams } from "../hooks/useQueryParams";
 import type { CaseSuggestion, QueueListParams } from "../types/api";
@@ -47,6 +49,8 @@ function suggestedTitle(suggestion: CaseSuggestion | null) {
 }
 
 export function CaseSuggestionsPage() {
+  const location = useLocation();
+  const { currentUser } = useCurrentUser();
   const { params, setParams, resetParams } = useQueryParams(SUGGESTION_DEFAULTS);
   const [draft, setDraft] = useState(params);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -74,6 +78,7 @@ export function CaseSuggestionsPage() {
   }
 
   const suggestions = data ?? [];
+  const returnTo = `${location.pathname}${location.search}`;
   const currentSuggestionId = selectedId ?? suggestions[0]?.suggestion_id ?? null;
   const {
     data: selectedSuggestion,
@@ -95,12 +100,29 @@ export function CaseSuggestionsPage() {
         title="Case suggestions"
         description="Suggested cases from recognition evidence thresholds."
         actions={
-          <button className="btn" type="button" onClick={refreshAll}>
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </button>
+          <>
+            <button className="btn" type="button" onClick={() => setParams({ status: "pending", offset: 0 })}>
+              Pending
+            </button>
+            <button className="btn" type="button" onClick={refreshAll}>
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </button>
+          </>
         }
       />
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        <button className={`btn ${params.status === "pending" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ status: "pending", offset: 0 })}>
+          Pending
+        </button>
+        <button className={`btn ${params.status === "accepted" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ status: "accepted", offset: 0 })}>
+          Accepted
+        </button>
+        <button className={`btn ${params.suggestion_type === "unresolved_subject_case" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ suggestion_type: "unresolved_subject_case", offset: 0 })}>
+          Unresolved subjects
+        </button>
+      </div>
 
       <FilterBar title="Suggestion filters" activeCount={activeSuggestionFilters(params)} onReset={clearFilters}>
         <form className="grid gap-3 md:grid-cols-2 xl:grid-cols-5" onSubmit={applyFilters}>
@@ -212,7 +234,7 @@ export function CaseSuggestionsPage() {
         </div>
 
         <DataState loading={selectedLoading} error={selectedError} onRetry={refreshSelected}>
-          <SuggestionDetail suggestion={selectedSuggestion} onChanged={refreshAll} />
+          <SuggestionDetail suggestion={selectedSuggestion} defaultActor={currentUser.username} returnTo={returnTo} onChanged={refreshAll} />
         </DataState>
       </div>
     </div>
@@ -252,10 +274,20 @@ function SuggestionSummary({ suggestion }: { suggestion: CaseSuggestion }) {
   );
 }
 
-function SuggestionDetail({ suggestion, onChanged }: { suggestion: CaseSuggestion | null; onChanged: () => void }) {
+function SuggestionDetail({
+  suggestion,
+  defaultActor,
+  returnTo,
+  onChanged,
+}: {
+  suggestion: CaseSuggestion | null;
+  defaultActor: string;
+  returnTo: string;
+  onChanged: () => void;
+}) {
   const [decision, setDecision] = useState<"accepted" | "rejected" | "deferred">("accepted");
   const [reason, setReason] = useState("sufficient evidence for case creation");
-  const [actor, setActor] = useState("julio");
+  const [actor, setActor] = useState(defaultActor);
   const [caseTitle, setCaseTitle] = useState(suggestedTitle(suggestion));
   const [caseType, setCaseType] = useState("unresolved_subject_case");
   const [priority, setPriority] = useState("medium");
@@ -271,6 +303,10 @@ function SuggestionDetail({ suggestion, onChanged }: { suggestion: CaseSuggestio
     setError(null);
     setSuccess(null);
   }, [suggestion?.suggestion_id]);
+
+  useEffect(() => {
+    setActor(defaultActor);
+  }, [defaultActor]);
 
   if (!suggestion) {
     return <EmptyState label="Select a case suggestion." />;
@@ -329,23 +365,22 @@ function SuggestionDetail({ suggestion, onChanged }: { suggestion: CaseSuggestio
   }
 
   return (
-    <aside className="panel p-4 xl:sticky xl:top-24">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-zinc-950">Suggestion detail</h2>
-          <div className="mt-1 text-xs text-zinc-500">{shortId(suggestion.suggestion_id)}</div>
-        </div>
-        <StatusBadge value={suggestion.status} tone={statusTone(suggestion.status)} />
-      </div>
+    <QueueActionPanel
+      title="Suggestion detail"
+      subtitle={`${shortId(suggestion.suggestion_id)} · acting as ${defaultActor}`}
+      status={<StatusBadge value={suggestion.status} tone={statusTone(suggestion.status)} />}
+    >
       <div className="mt-4 grid gap-3">
         <KeyValue label="Type" value={suggestion.suggestion_type} />
         <KeyValue label="Evidence" value={suggestion.evidence_count} />
+        <KeyValue label="Organization" value={shortId(suggestion.organization_id)} />
+        <KeyValue label="Site" value={shortId(suggestion.site_id)} />
         <KeyValue label="Reason" value={suggestion.reason_summary} />
         {suggestion.promoted_case_id ? (
           <KeyValue
             label="Promoted case"
             value={
-              <Link className="text-teal-800 underline-offset-2 hover:underline" to={`/cases/${suggestion.promoted_case_id}`}>
+              <Link className="text-teal-800 underline-offset-2 hover:underline" to={`/cases/${suggestion.promoted_case_id}`} state={{ returnTo }}>
                 {shortId(suggestion.promoted_case_id)}
               </Link>
             }
@@ -366,7 +401,7 @@ function SuggestionDetail({ suggestion, onChanged }: { suggestion: CaseSuggestio
           <input className="field" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="sufficient evidence" />
         </FormField>
         <FormField label="Resolved by">
-          <input className="field" value={actor} onChange={(event) => setActor(event.target.value)} placeholder="julio" />
+          <input className="field" value={actor} onChange={(event) => setActor(event.target.value)} placeholder={defaultActor} />
         </FormField>
         <button className="btn btn-primary w-full" type="submit" disabled={busy !== null || !reason.trim() || !actor.trim()}>
           {busy === "Resolve suggestion" ? "Resolving..." : "Resolve suggestion"}
@@ -402,6 +437,6 @@ function SuggestionDetail({ suggestion, onChanged }: { suggestion: CaseSuggestio
           {busy === "Promote to case" ? "Promoting..." : "Promote to case"}
         </button>
       </div>
-    </aside>
+    </QueueActionPanel>
   );
 }

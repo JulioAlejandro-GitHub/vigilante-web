@@ -6,9 +6,11 @@ import { api } from "../api/vigilanteApi";
 import { DataState, EmptyState } from "../components/DataState";
 import { FilterBar } from "../components/filters/FilterBar";
 import { FormField } from "../components/forms/FormField";
+import { OwnerBadge } from "../components/ownership/OwnerBadge";
 import { PageHeader } from "../components/PageHeader";
 import { PaginationControls } from "../components/PaginationControls";
 import { StatusBadge, statusTone } from "../components/StatusBadge";
+import { useCurrentUser } from "../context/CurrentUserContext";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useQueryParams } from "../hooks/useQueryParams";
 import type { CaseListParams, CaseRecord } from "../types/api";
@@ -20,7 +22,10 @@ type CasesQueryParams = {
   priority: string;
   severity: string;
   case_type: string;
+  organization_id: string;
+  site_id: string;
   q: string;
+  ownership: "all" | "mine" | "unassigned";
   limit: number;
   offset: number;
   sort_by: "updated_at" | "opened_at" | "priority";
@@ -33,7 +38,10 @@ const CASE_DEFAULTS: CasesQueryParams = {
   priority: "",
   severity: "",
   case_type: "",
+  organization_id: "",
+  site_id: "",
   q: "",
+  ownership: "all",
   limit: 25,
   offset: 0,
   sort_by: "updated_at",
@@ -41,17 +49,34 @@ const CASE_DEFAULTS: CasesQueryParams = {
 };
 
 function activeCaseFilters(params: CasesQueryParams) {
-  return ["status", "assigned_to", "priority", "severity", "case_type", "q"].filter((key) => {
+  return ["status", "assigned_to", "priority", "severity", "case_type", "organization_id", "site_id", "q", "ownership"].filter((key) => {
     const value = params[key as keyof CasesQueryParams];
-    return value !== undefined && value !== "";
+    return value !== undefined && value !== "" && value !== "all";
   }).length;
 }
 
 export function CasesPage() {
   const location = useLocation();
+  const { currentUser } = useCurrentUser();
   const { params, setParams, resetParams } = useQueryParams(CASE_DEFAULTS);
   const [draft, setDraft] = useState(params);
-  const filters = useMemo<CaseListParams>(() => params, [params]);
+  const filters = useMemo<CaseListParams>(
+    () => ({
+      status: params.status,
+      assigned_to: params.ownership === "mine" ? currentUser.username : params.ownership === "unassigned" ? "" : params.assigned_to,
+      priority: params.priority,
+      severity: params.severity,
+      case_type: params.case_type,
+      organization_id: params.organization_id,
+      site_id: params.site_id,
+      q: params.q,
+      limit: params.limit,
+      offset: params.offset,
+      sort_by: params.sort_by,
+      sort_order: params.sort_order,
+    }),
+    [currentUser.username, params],
+  );
   const { data, loading, error, refresh } = useAsyncData(() => api.listCases(filters), [JSON.stringify(filters)]);
 
   useEffect(() => {
@@ -72,6 +97,7 @@ export function CasesPage() {
   }
 
   const cases = data ?? [];
+  const visibleCases = params.ownership === "unassigned" ? cases.filter((item) => !item.assigned_to) : cases;
   const activeCount = activeCaseFilters(params);
   const returnTo = `${location.pathname}${location.search}`;
 
@@ -81,15 +107,46 @@ export function CasesPage() {
         title="Cases"
         description="Canonical case list with assignment, lifecycle and operational filtering."
         actions={
-          <button className="btn" type="button" onClick={refresh}>
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </button>
+          <>
+            <button
+              className="btn"
+              type="button"
+              onClick={() => setParams({ ownership: "mine", assigned_to: currentUser.username, offset: 0 })}
+            >
+              Assigned to me
+            </button>
+            <button className="btn" type="button" onClick={refresh}>
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </button>
+          </>
         }
       />
 
+      <div className="mb-4 flex flex-wrap gap-2">
+        <button className={`btn ${params.ownership === "mine" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ ownership: "mine", assigned_to: currentUser.username, offset: 0 })}>
+          Assigned to me
+        </button>
+        <button className={`btn ${params.ownership === "unassigned" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ ownership: "unassigned", assigned_to: "", offset: 0 })}>
+          Unassigned
+        </button>
+        <button className={`btn ${params.status === "open" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ status: "open", offset: 0 })}>
+          Open
+        </button>
+        <button className={`btn ${params.status === "in_review" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ status: "in_review", offset: 0 })}>
+          Under review
+        </button>
+      </div>
+
       <FilterBar title="Case filters" activeCount={activeCount} onReset={clearFilters}>
         <form className="grid gap-3 md:grid-cols-2 xl:grid-cols-6" onSubmit={applyFilters}>
+          <FormField label="Ownership">
+            <select className="field" value={draft.ownership} onChange={(event) => setDraft({ ...draft, ownership: event.target.value as CasesQueryParams["ownership"] })}>
+              <option value="all">All</option>
+              <option value="mine">Assigned to me</option>
+              <option value="unassigned">Unassigned</option>
+            </select>
+          </FormField>
           <FormField label="Status">
             <select className="field" value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })}>
               <option value="">Any</option>
@@ -138,6 +195,17 @@ export function CasesPage() {
           <FormField label="Search">
             <input className="field" value={draft.q} onChange={(event) => setDraft({ ...draft, q: event.target.value })} placeholder="title or code" />
           </FormField>
+          <FormField label="Organization">
+            <input
+              className="field"
+              value={draft.organization_id}
+              onChange={(event) => setDraft({ ...draft, organization_id: event.target.value })}
+              placeholder="organization_id"
+            />
+          </FormField>
+          <FormField label="Site">
+            <input className="field" value={draft.site_id} onChange={(event) => setDraft({ ...draft, site_id: event.target.value })} placeholder="site_id" />
+          </FormField>
           <FormField label="Sort by">
             <select className="field" value={draft.sort_by} onChange={(event) => setDraft({ ...draft, sort_by: event.target.value as CasesQueryParams["sort_by"] })}>
               <option value="updated_at">updated_at</option>
@@ -158,7 +226,7 @@ export function CasesPage() {
               <option value={50}>50</option>
             </select>
           </FormField>
-          <div className="flex items-end gap-2 md:col-span-2 xl:col-span-3">
+          <div className="flex items-end gap-2 md:col-span-2 xl:col-span-4">
             <button className="btn btn-primary w-full sm:w-auto" type="submit">
               Apply filters
             </button>
@@ -170,7 +238,7 @@ export function CasesPage() {
       </FilterBar>
 
       <DataState loading={loading} error={error} onRetry={refresh}>
-        {cases.length === 0 ? (
+        {visibleCases.length === 0 ? (
           <EmptyState label="No cases match the current filters." />
         ) : (
           <>
@@ -185,11 +253,12 @@ export function CasesPage() {
                       <th className="px-4 py-3">Priority</th>
                       <th className="px-4 py-3">Severity</th>
                       <th className="px-4 py-3">Owner</th>
+                      <th className="px-4 py-3">Org / site</th>
                       <th className="px-4 py-3">Updated</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200 bg-white">
-                    {cases.map((item) => (
+                    {visibleCases.map((item) => (
                       <tr key={item.case_id} className="align-top hover:bg-zinc-50">
                         <td className="px-4 py-3">
                           <Link
@@ -209,7 +278,13 @@ export function CasesPage() {
                         <td className="px-4 py-3">
                           <StatusBadge value={item.severity} tone={statusTone(item.severity)} />
                         </td>
-                        <td className="px-4 py-3">{item.assigned_to ?? "Unassigned"}</td>
+                        <td className="px-4 py-3">
+                          <OwnerBadge assignedTo={item.assigned_to} assignedAt={item.assigned_at} compact />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div>{shortId(item.organization_id)}</div>
+                          <div className="mt-1 text-xs text-zinc-500">{shortId(item.site_id)}</div>
+                        </td>
                         <td className="px-4 py-3 whitespace-nowrap">{formatDateTime(item.updated_at)}</td>
                       </tr>
                     ))}
@@ -219,7 +294,7 @@ export function CasesPage() {
             </div>
 
             <div className="space-y-3 md:hidden">
-              {cases.map((item) => (
+              {visibleCases.map((item) => (
                 <CaseCard key={item.case_id} item={item} returnTo={returnTo} />
               ))}
             </div>
@@ -249,7 +324,9 @@ function CaseCard({ item, returnTo }: { item: CaseRecord; returnTo: string }) {
         </div>
         <div>
           <div className="label">Owner</div>
-          <div className="mt-1 break-words text-zinc-900">{item.assigned_to ?? "Unassigned"}</div>
+          <div className="mt-1">
+            <OwnerBadge assignedTo={item.assigned_to} assignedAt={item.assigned_at} compact />
+          </div>
         </div>
         <div>
           <div className="label">Priority</div>
@@ -262,7 +339,11 @@ function CaseCard({ item, returnTo }: { item: CaseRecord; returnTo: string }) {
           </div>
         </div>
       </div>
-      <div className="mt-3 text-xs text-zinc-500">Updated {formatDateTime(item.updated_at)}</div>
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
+        <span>Updated {formatDateTime(item.updated_at)}</span>
+        <span>Org {shortId(item.organization_id)}</span>
+        <span>Site {shortId(item.site_id)}</span>
+      </div>
     </Link>
   );
 }

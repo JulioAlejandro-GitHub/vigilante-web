@@ -1,9 +1,12 @@
 import { StatusBadge, statusTone } from "./StatusBadge";
 import type { TimelineEvent } from "../types/api";
 import { formatDateTime, shortId } from "../utils/format";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 export function TimelineList({ items }: { items: TimelineEvent[] }) {
+  const location = useLocation();
+  const returnTo = `${location.pathname}${location.search}`;
+
   if (items.length === 0) {
     return <div className="rounded border border-dashed border-zinc-300 bg-white p-4 text-sm text-zinc-600">No timeline events.</div>;
   }
@@ -22,7 +25,7 @@ export function TimelineList({ items }: { items: TimelineEvent[] }) {
               <p className="mt-2 text-sm text-zinc-900">{item.summary}</p>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
                 {item.case_id ? (
-                  <Link className="font-medium text-teal-800 underline-offset-2 hover:underline" to={`/cases/${item.case_id}`}>
+                  <Link className="font-medium text-teal-800 underline-offset-2 hover:underline" to={`/cases/${item.case_id}`} state={{ returnTo }}>
                     Case {shortId(item.case_id)}
                   </Link>
                 ) : null}

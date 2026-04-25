@@ -9,7 +9,9 @@ import { FormField } from "../components/forms/FormField";
 import { KeyValue } from "../components/KeyValue";
 import { PageHeader } from "../components/PageHeader";
 import { PaginationControls } from "../components/PaginationControls";
+import { QueueActionPanel } from "../components/queues/QueueActionPanel";
 import { StatusBadge, statusTone } from "../components/StatusBadge";
+import { useCurrentUser } from "../context/CurrentUserContext";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useQueryParams } from "../hooks/useQueryParams";
 import type { ManualReview, QueueListParams } from "../types/api";
@@ -43,6 +45,7 @@ function activeReviewFilters(params: ManualReviewQueryParams) {
 }
 
 export function ManualReviewsPage() {
+  const { currentUser } = useCurrentUser();
   const { params, setParams, resetParams } = useQueryParams(MANUAL_REVIEW_DEFAULTS);
   const [draft, setDraft] = useState(params);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -91,12 +94,29 @@ export function ManualReviewsPage() {
         title="Manual reviews"
         description="Operational review queue projected from recognition events."
         actions={
-          <button className="btn" type="button" onClick={refreshAll}>
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </button>
+          <>
+            <button className="btn" type="button" onClick={() => setParams({ status: "pending", offset: 0 })}>
+              Pending
+            </button>
+            <button className="btn" type="button" onClick={refreshAll}>
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </button>
+          </>
         }
       />
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        <button className={`btn ${params.status === "pending" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ status: "pending", offset: 0 })}>
+          Pending
+        </button>
+        <button className={`btn ${params.status === "approved" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ status: "approved", offset: 0 })}>
+          Approved
+        </button>
+        <button className={`btn ${params.review_type === "identity_conflict" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ review_type: "identity_conflict", offset: 0 })}>
+          Identity conflicts
+        </button>
+      </div>
 
       <FilterBar title="Review filters" activeCount={activeReviewFilters(params)} onReset={clearFilters}>
         <form className="grid gap-3 md:grid-cols-2 xl:grid-cols-6" onSubmit={applyFilters}>
@@ -218,7 +238,7 @@ export function ManualReviewsPage() {
         </div>
 
         <DataState loading={selectedLoading} error={selectedError} onRetry={refreshSelected}>
-          <ReviewDetail review={selectedReview} onChanged={refreshAll} />
+          <ReviewDetail review={selectedReview} defaultActor={currentUser.username} onChanged={refreshAll} />
         </DataState>
       </div>
     </div>
@@ -260,10 +280,10 @@ function ReviewSummary({ review }: { review: ManualReview }) {
   );
 }
 
-function ReviewDetail({ review, onChanged }: { review: ManualReview | null; onChanged: () => void }) {
+function ReviewDetail({ review, defaultActor, onChanged }: { review: ManualReview | null; defaultActor: string; onChanged: () => void }) {
   const [decision, setDecision] = useState<"approved" | "rejected" | "needs_more_evidence">("approved");
   const [reason, setReason] = useState("confirmed by analyst");
-  const [actor, setActor] = useState("julio");
+  const [actor, setActor] = useState(defaultActor);
   const [identityResolution, setIdentityResolution] = useState<"confirm_identity" | "discard_candidate" | "mark_unresolved" | "escalate">(
     "confirm_identity",
   );
@@ -278,6 +298,10 @@ function ReviewDetail({ review, onChanged }: { review: ManualReview | null; onCh
     setError(null);
     setSuccess(null);
   }, [review?.review_id]);
+
+  useEffect(() => {
+    setActor(defaultActor);
+  }, [defaultActor]);
 
   if (!review) {
     return <EmptyState label="Select a manual review." />;
@@ -321,18 +345,17 @@ function ReviewDetail({ review, onChanged }: { review: ManualReview | null; onCh
   }
 
   return (
-    <aside className="panel p-4 xl:sticky xl:top-24">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-zinc-950">Review detail</h2>
-          <div className="mt-1 text-xs text-zinc-500">{shortId(review.review_id)}</div>
-        </div>
-        <StatusBadge value={review.status} tone={statusTone(review.status)} />
-      </div>
+    <QueueActionPanel
+      title="Review detail"
+      subtitle={`${shortId(review.review_id)} · acting as ${defaultActor}`}
+      status={<StatusBadge value={review.status} tone={statusTone(review.status)} />}
+    >
       <div className="mt-4 grid gap-3">
         <KeyValue label="Type" value={review.review_type} />
         <KeyValue label="Priority" value={review.priority} />
         <KeyValue label="Severity" value={<StatusBadge value={review.severity} tone={statusTone(review.severity)} />} />
+        <KeyValue label="Organization" value={shortId(review.organization_id)} />
+        <KeyValue label="Site" value={shortId(review.site_id)} />
         <KeyValue label="Reason" value={review.reason_summary} />
       </div>
       <form className="mt-5 space-y-3 border-t border-zinc-200 pt-4" onSubmit={resolve}>
@@ -348,7 +371,7 @@ function ReviewDetail({ review, onChanged }: { review: ManualReview | null; onCh
           <input className="field" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="confirmed by analyst" />
         </FormField>
         <FormField label="Resolved by">
-          <input className="field" value={actor} onChange={(event) => setActor(event.target.value)} placeholder="julio" />
+          <input className="field" value={actor} onChange={(event) => setActor(event.target.value)} placeholder={defaultActor} />
         </FormField>
         {review.review_type === "identity_conflict" ? (
           <>
@@ -369,6 +392,6 @@ function ReviewDetail({ review, onChanged }: { review: ManualReview | null; onCh
           {busy ? "Resolving..." : "Resolve review"}
         </button>
       </form>
-    </aside>
+    </QueueActionPanel>
   );
 }

@@ -23,6 +23,7 @@ Valor esperado para desarrollo local:
 
 ```bash
 VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_DEFAULT_USER=julio
 ```
 
 En modo dev, Vite reenvía `/api/*` y `/health` a `VITE_API_BASE_URL`.
@@ -68,13 +69,31 @@ npm run build
 - `/case-suggestions`
 - `/timeline`
 
-## Slice 2
+## Slice 3
 
 ### Navegación
 
 - App shell con sidebar en desktop.
 - Drawer de navegación en móvil.
 - Indicador visual de ruta activa.
+- Selector simple de usuario actual simulado en el shell.
+
+### Current user simulado
+
+La app usa `CurrentUserProvider` para mantener un usuario actual local:
+
+- default desde `VITE_DEFAULT_USER`
+- persistencia en `localStorage`
+- selector simple en header/drawer
+
+Ese usuario se usa como default en:
+
+- asignación/desasignación
+- cambios de estado, cierre y reapertura
+- notas de caso
+- resolución de manual reviews
+- resolución/promoción de case suggestions
+- links de "My cases"
 
 ### Filtros persistentes
 
@@ -96,6 +115,8 @@ Consume `GET /api/v1/cases` con:
 - `priority`
 - `severity`
 - `case_type`
+- `organization_id`
+- `site_id`
 - `q`
 - `limit`
 - `offset`
@@ -103,6 +124,18 @@ Consume `GET /api/v1/cases` con:
 - `sort_order`
 
 La vista usa tabla en desktop y cards en móvil/tablet angosto.
+Incluye atajos de trabajo para:
+
+- assigned to me
+- unassigned
+- open
+- under review
+
+El estado visual de ownership se muestra como:
+
+- assigned to me
+- assigned to someone else
+- unassigned
 
 ### Case detail
 
@@ -123,6 +156,8 @@ Acciones disponibles con validación básica y refresh posterior:
 - reabrir caso
 - agregar nota
 
+El detalle incluye header de caso, bloque de ownership, breadcrumbs/back to results y panel de acciones con defaults del usuario actual.
+
 ### Manual reviews
 
 Consume:
@@ -132,6 +167,7 @@ Consume:
 - `POST /api/v1/manual-reviews/{review_id}/resolve`
 
 Soporta filtros por URL, listado responsive, detalle lateral y campos condicionales para `identity_conflict`.
+El panel de resolución usa el usuario actual como default en `resolved_by`.
 
 ### Case suggestions
 
@@ -143,6 +179,7 @@ Consume:
 - `POST /api/v1/case-suggestions/{suggestion_id}/promote`
 
 Incluye filtros por URL, detalle lateral, resolución y promoción con campos mínimos editables.
+El panel de acción usa el usuario actual como default en `resolved_by` y conserva retorno contextual al caso promovido.
 
 ### Timeline
 
@@ -155,6 +192,7 @@ Consume `GET /api/v1/timeline` con filtros por:
 - `limit`
 
 Los eventos muestran tipo, severidad, fecha, resumen y link al caso si existe `case_id`.
+Los links a caso preservan retorno contextual con la URL filtrada del timeline.
 
 ## Pendientes
 
