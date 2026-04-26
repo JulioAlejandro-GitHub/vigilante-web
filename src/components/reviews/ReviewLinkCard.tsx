@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+import { ContextChips } from "../context/ContextChips";
 import { StatusBadge, statusTone } from "../StatusBadge";
 import type { ManualReview } from "../../types/api";
 import { formatDateTime, shortId } from "../../utils/format";
@@ -24,6 +25,9 @@ export function ReviewLinkCard({ review, to }: ReviewLinkCardProps) {
         <span>Camera {shortId(review.camera_id)}</span>
         <span>Priority {review.priority}</span>
         <span>{formatDateTime(review.event_ts)}</span>
+      </div>
+      <div className="mt-3">
+        <ContextChips organizationId={review.organization_id} siteId={review.site_id} compact />
       </div>
     </Link>
   );

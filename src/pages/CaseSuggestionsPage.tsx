@@ -4,11 +4,13 @@ import { useLocation } from "react-router-dom";
 
 import { runSequentialBulkAction } from "../api/bulkActions";
 import { api } from "../api/vigilanteApi";
+import { ContextChips } from "../components/context/ContextChips";
 import { DataState, EmptyState } from "../components/DataState";
 import { FilterBar } from "../components/filters/FilterBar";
 import { FormField } from "../components/forms/FormField";
 import { PageHeader } from "../components/PageHeader";
 import { PaginationControls } from "../components/PaginationControls";
+import { QueueQuickFilters } from "../components/queues/QueueQuickFilters";
 import { BulkActionBar } from "../components/selection/BulkActionBar";
 import { SelectionToolbar } from "../components/selection/SelectionToolbar";
 import { SuggestionDetailPanel } from "../components/suggestions/SuggestionDetailPanel";
@@ -19,6 +21,7 @@ import { useBulkSelection } from "../hooks/useBulkSelection";
 import { useQueryParams } from "../hooks/useQueryParams";
 import type { CaseSuggestion, QueueListParams } from "../types/api";
 import { formatDateTime, shortId } from "../utils/format";
+import { matchesSessionContext } from "../utils/ownership";
 
 type SuggestionQueryParams = {
   status: string;
@@ -26,6 +29,8 @@ type SuggestionQueryParams = {
   camera_id: string;
   subject_id: string;
   suggestion_id: string;
+  context: "all" | "mine";
+  detail: "open" | "closed";
   limit: number;
   offset: number;
 };
@@ -36,20 +41,22 @@ const SUGGESTION_DEFAULTS: SuggestionQueryParams = {
   camera_id: "",
   subject_id: "",
   suggestion_id: "",
+  context: "all",
+  detail: "open",
   limit: 25,
   offset: 0,
 };
 
 function activeSuggestionFilters(params: SuggestionQueryParams) {
-  return ["status", "suggestion_type", "camera_id", "subject_id"].filter((key) => {
+  return ["status", "suggestion_type", "camera_id", "subject_id", "context"].filter((key) => {
     const value = params[key as keyof SuggestionQueryParams];
-    return value !== undefined && value !== "";
+    return value !== undefined && value !== "" && value !== "all";
   }).length;
 }
 
 export function CaseSuggestionsPage() {
   const location = useLocation();
-  const { currentUser } = useCurrentUser();
+  const { currentUser, check } = useCurrentUser();
   const { params, setParams, resetParams } = useQueryParams(SUGGESTION_DEFAULTS);
   const [draft, setDraft] = useState(params);
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -86,9 +93,14 @@ export function CaseSuggestionsPage() {
   }
 
   const suggestions = data ?? [];
-  const selection = useBulkSelection(suggestions.map((suggestion) => suggestion.suggestion_id));
+  const visibleSuggestions =
+    params.context === "mine"
+      ? suggestions.filter((suggestion) => matchesSessionContext(suggestion, currentUser))
+      : suggestions;
+  const selection = useBulkSelection(visibleSuggestions.map((suggestion) => suggestion.suggestion_id));
   const returnTo = `${location.pathname}${location.search}`;
-  const currentSuggestionId = params.suggestion_id || suggestions[0]?.suggestion_id || null;
+  const currentSuggestionId = params.detail === "closed" ? null : params.suggestion_id || visibleSuggestions[0]?.suggestion_id || null;
+  const bulkPermission = check("bulk:write");
   const {
     data: selectedSuggestion,
     loading: selectedLoading,
@@ -104,8 +116,8 @@ export function CaseSuggestionsPage() {
   };
 
   async function bulkResolve(decision: "accepted" | "rejected" | "deferred") {
-    if (bulkBusy || selection.selectedCount === 0) return;
-    const selectedSuggestions = suggestions.filter((suggestion) => selection.selectedIds.has(suggestion.suggestion_id));
+    if (bulkBusy || selection.selectedCount === 0 || !bulkPermission.allowed) return;
+    const selectedSuggestions = visibleSuggestions.filter((suggestion) => selection.selectedIds.has(suggestion.suggestion_id));
     setBulkBusy(true);
     setBulkError(null);
     setBulkSuccess(null);
@@ -145,20 +157,22 @@ export function CaseSuggestionsPage() {
         }
       />
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        <button className={`btn ${params.status === "pending" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ status: "pending", offset: 0 })}>
-          Pending
-        </button>
-        <button className={`btn ${params.status === "accepted" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ status: "accepted", offset: 0 })}>
-          Accepted
-        </button>
-        <button className={`btn ${params.suggestion_type === "unresolved_subject_case" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ suggestion_type: "unresolved_subject_case", offset: 0 })}>
-          Unresolved subjects
-        </button>
-      </div>
+      <QueueQuickFilters
+        filters={[
+          { label: "Pending", active: params.status === "pending", onClick: () => setParams({ status: "pending", offset: 0 }) },
+          { label: "Accepted", active: params.status === "accepted", onClick: () => setParams({ status: "accepted", offset: 0 }) },
+          { label: "Unresolved subjects", active: params.suggestion_type === "unresolved_subject_case", onClick: () => setParams({ suggestion_type: "unresolved_subject_case", offset: 0 }) },
+          {
+            label: "My context",
+            active: params.context === "mine",
+            disabled: !currentUser.organization_id && !currentUser.site_id,
+            onClick: () => setParams({ context: "mine", offset: 0 }),
+          },
+        ]}
+      />
 
       <FilterBar title="Suggestion filters" activeCount={activeSuggestionFilters(params)} onReset={clearFilters}>
-        <form className="grid gap-3 md:grid-cols-2 xl:grid-cols-5" onSubmit={applyFilters}>
+        <form className="grid gap-3 md:grid-cols-2 xl:grid-cols-6" onSubmit={applyFilters}>
           <FormField label="Status">
             <select className="field" value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })}>
               <option value="">Any</option>
@@ -182,6 +196,12 @@ export function CaseSuggestionsPage() {
           <FormField label="Subject">
             <input className="field" value={draft.subject_id} onChange={(event) => setDraft({ ...draft, subject_id: event.target.value })} placeholder="subject_id" />
           </FormField>
+          <FormField label="Context">
+            <select className="field" value={draft.context} onChange={(event) => setDraft({ ...draft, context: event.target.value as SuggestionQueryParams["context"] })}>
+              <option value="all">All returned</option>
+              <option value="mine">Current org/site</option>
+            </select>
+          </FormField>
           <FormField label="Limit">
             <select className="field" value={draft.limit} onChange={(event) => setDraft({ ...draft, limit: Number(event.target.value) })}>
               <option value={10}>10</option>
@@ -189,7 +209,7 @@ export function CaseSuggestionsPage() {
               <option value={50}>50</option>
             </select>
           </FormField>
-          <div className="flex items-end gap-2 md:col-span-2 xl:col-span-5">
+          <div className="flex items-end gap-2 md:col-span-2 xl:col-span-6">
             <button className="btn btn-primary w-full sm:w-auto" type="submit">
               Apply filters
             </button>
@@ -203,25 +223,26 @@ export function CaseSuggestionsPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div>
           <DataState loading={loading} error={error} onRetry={refresh}>
-            {suggestions.length === 0 ? (
+            {visibleSuggestions.length === 0 ? (
               <EmptyState label="No case suggestions match the current filters." />
             ) : (
               <>
                 <SelectionToolbar
                   selectedCount={selection.selectedCount}
                   allVisibleSelected={selection.allVisibleSelected}
-                  visibleCount={suggestions.length}
+                  visibleCount={visibleSuggestions.length}
                   onToggleAll={selection.toggleAllVisible}
                   onClear={selection.clearSelection}
                 />
                 <BulkActionBar selectedCount={selection.selectedCount} busy={bulkBusy} error={bulkError} success={bulkSuccess}>
-                  <button className="btn btn-primary" type="button" disabled={bulkBusy} onClick={() => void bulkResolve("accepted")}>
+                  {!bulkPermission.allowed ? <div className="basis-full text-xs text-amber-700">{bulkPermission.reason}</div> : null}
+                  <button className="btn btn-primary" type="button" disabled={bulkBusy || !bulkPermission.allowed} onClick={() => void bulkResolve("accepted")}>
                     Accept
                   </button>
-                  <button className="btn" type="button" disabled={bulkBusy} onClick={() => void bulkResolve("deferred")}>
+                  <button className="btn" type="button" disabled={bulkBusy || !bulkPermission.allowed} onClick={() => void bulkResolve("deferred")}>
                     Defer
                   </button>
-                  <button className="btn btn-danger" type="button" disabled={bulkBusy} onClick={() => void bulkResolve("rejected")}>
+                  <button className="btn btn-danger" type="button" disabled={bulkBusy || !bulkPermission.allowed} onClick={() => void bulkResolve("rejected")}>
                     Reject
                   </button>
                 </BulkActionBar>
@@ -235,17 +256,18 @@ export function CaseSuggestionsPage() {
                           <th className="px-4 py-3">Status</th>
                           <th className="px-4 py-3">Evidence</th>
                           <th className="px-4 py-3">Subject</th>
+                          <th className="px-4 py-3">Org / site</th>
                           <th className="px-4 py-3">Event time</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-200 bg-white">
-                        {suggestions.map((suggestion) => (
+                        {visibleSuggestions.map((suggestion) => (
                           <tr
                             key={suggestion.suggestion_id}
                             className={`cursor-pointer align-top hover:bg-zinc-50 ${
                               currentSuggestionId === suggestion.suggestion_id ? "bg-teal-50/60" : ""
                             }`}
-                            onClick={() => setParams({ suggestion_id: suggestion.suggestion_id })}
+                            onClick={() => setParams({ suggestion_id: suggestion.suggestion_id, detail: "open" })}
                           >
                             <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
                               <input
@@ -264,6 +286,9 @@ export function CaseSuggestionsPage() {
                             </td>
                             <td className="px-4 py-3">{suggestion.evidence_count}</td>
                             <td className="px-4 py-3">{shortId(suggestion.subject_id)}</td>
+                            <td className="px-4 py-3">
+                              <ContextChips organizationId={suggestion.organization_id} siteId={suggestion.site_id} compact />
+                            </td>
                             <td className="px-4 py-3 whitespace-nowrap">{formatDateTime(suggestion.event_ts)}</td>
                           </tr>
                         ))}
@@ -273,14 +298,14 @@ export function CaseSuggestionsPage() {
                 </div>
 
                 <div className="space-y-3 md:hidden">
-                  {suggestions.map((suggestion) => (
+                  {visibleSuggestions.map((suggestion) => (
                     <button
                       key={suggestion.suggestion_id}
                       className={`panel w-full p-4 text-left hover:border-teal-200 hover:bg-teal-50/30 ${
                         currentSuggestionId === suggestion.suggestion_id ? "border-teal-300 bg-teal-50/60" : ""
                       }`}
                       type="button"
-                      onClick={() => setParams({ suggestion_id: suggestion.suggestion_id })}
+                      onClick={() => setParams({ suggestion_id: suggestion.suggestion_id, detail: "open" })}
                     >
                       <span className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-zinc-700" onClick={(event) => event.stopPropagation()}>
                         <input
@@ -296,14 +321,19 @@ export function CaseSuggestionsPage() {
                   ))}
                 </div>
 
-                <PaginationControls limit={params.limit} offset={params.offset} itemCount={suggestions.length} onPage={setPage} />
+                <PaginationControls limit={params.limit} offset={params.offset} itemCount={visibleSuggestions.length} onPage={setPage} />
               </>
             )}
           </DataState>
         </div>
 
         <DataState loading={selectedLoading} error={selectedError} onRetry={refreshSelected}>
-          <SuggestionDetailPanel suggestion={selectedSuggestion} returnTo={returnTo} onChanged={refreshAll} />
+          <SuggestionDetailPanel
+            suggestion={selectedSuggestion}
+            returnTo={returnTo}
+            onChanged={refreshAll}
+            onClose={() => setParams({ suggestion_id: "", detail: "closed" })}
+          />
         </DataState>
       </div>
     </div>
@@ -338,7 +368,10 @@ function SuggestionSummary({ suggestion }: { suggestion: CaseSuggestion }) {
           <div className="mt-1">{suggestion.promoted_case_id ? shortId(suggestion.promoted_case_id) : "No"}</div>
         </div>
       </div>
-      <div className="mt-3 text-xs text-zinc-500">{formatDateTime(suggestion.event_ts)}</div>
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+        <span>{formatDateTime(suggestion.event_ts)}</span>
+        <ContextChips organizationId={suggestion.organization_id} siteId={suggestion.site_id} compact />
+      </div>
     </>
   );
 }

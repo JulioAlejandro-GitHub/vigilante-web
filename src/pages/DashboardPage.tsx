@@ -1,11 +1,11 @@
-import { ArrowRight, ClipboardList, FileText, RefreshCw, Search } from "lucide-react";
+import { ArrowRight, ClipboardList, FileText, ListChecks, RefreshCw, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { api } from "../api/vigilanteApi";
 import { DataState } from "../components/DataState";
 import { WorkQueueCard } from "../components/dashboard/WorkQueueCard";
 import { PageHeader } from "../components/PageHeader";
-import { RoleBadge } from "../components/session/RoleBadge";
+import { SessionSummaryCard } from "../components/session/SessionSummaryCard";
 import { CurrentUser, useCurrentUser } from "../context/CurrentUserContext";
 import { useAsyncData } from "../hooks/useAsyncData";
 import type { DashboardSummary } from "../types/api";
@@ -38,25 +38,31 @@ function DashboardContent({ summary, currentUser }: { summary: DashboardSummary;
 
   return (
     <div className="space-y-6">
-      <section className="panel p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-zinc-950">{currentUser.name}</h2>
-            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-500">
-              <span>Org {currentUser.organization_id ?? "any"}</span>
-              <span>Site {currentUser.site_id ?? "any"}</span>
-            </div>
-          </div>
-          <RoleBadge role={currentUser.role} />
-        </div>
-        {currentUser.role === "supervisor" ? (
-          <div className="mt-3 rounded border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">
-            Supervisor mock view: bulk actions and cross-queue visibility are emphasized in this session.
-          </div>
-        ) : null}
-      </section>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <SessionSummaryCard />
+        <section className="panel p-4">
+          <h2 className="text-base font-semibold text-zinc-950">Session permissions</h2>
+          <p className="mt-3 text-sm text-zinc-700">
+            {currentUser.role === "supervisor"
+              ? "Supervisor mock session: bulk actions, reassignment, promotion and cross-context controls are visually available."
+              : "Analyst mock session: personal ownership, case status, notes and queue resolution are available; supervisor actions show disabled hints."}
+          </p>
+          <Link className="btn mt-4 w-full justify-between" to="/my-work">
+            Open My Work
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </section>
+      </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+        <WorkQueueCard
+          label="My Work"
+          value={summary.cases_assigned_to_user}
+          to="/my-work"
+          icon={ListChecks}
+          description="Personal cases and queues"
+          tone="success"
+        />
         <WorkQueueCard
           label="My cases"
           value={summary.cases_assigned_to_user}

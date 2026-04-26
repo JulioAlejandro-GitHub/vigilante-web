@@ -4,11 +4,13 @@ import { useLocation } from "react-router-dom";
 
 import { runSequentialBulkAction } from "../api/bulkActions";
 import { api } from "../api/vigilanteApi";
+import { ContextChips } from "../components/context/ContextChips";
 import { DataState, EmptyState } from "../components/DataState";
 import { FilterBar } from "../components/filters/FilterBar";
 import { FormField } from "../components/forms/FormField";
 import { PageHeader } from "../components/PageHeader";
 import { PaginationControls } from "../components/PaginationControls";
+import { QueueQuickFilters } from "../components/queues/QueueQuickFilters";
 import { ReviewDetailPanel } from "../components/reviews/ReviewDetailPanel";
 import { BulkActionBar } from "../components/selection/BulkActionBar";
 import { SelectionToolbar } from "../components/selection/SelectionToolbar";
@@ -19,6 +21,7 @@ import { useBulkSelection } from "../hooks/useBulkSelection";
 import { useQueryParams } from "../hooks/useQueryParams";
 import type { ManualReview, QueueListParams } from "../types/api";
 import { formatDateTime, shortId } from "../utils/format";
+import { matchesSessionContext } from "../utils/ownership";
 
 type ManualReviewQueryParams = {
   status: string;
@@ -27,6 +30,8 @@ type ManualReviewQueryParams = {
   camera_id: string;
   subject_id: string;
   review_id: string;
+  context: "all" | "mine";
+  detail: "open" | "closed";
   limit: number;
   offset: number;
 };
@@ -38,20 +43,22 @@ const MANUAL_REVIEW_DEFAULTS: ManualReviewQueryParams = {
   camera_id: "",
   subject_id: "",
   review_id: "",
+  context: "all",
+  detail: "open",
   limit: 25,
   offset: 0,
 };
 
 function activeReviewFilters(params: ManualReviewQueryParams) {
-  return ["status", "review_type", "priority", "camera_id", "subject_id"].filter((key) => {
+  return ["status", "review_type", "priority", "camera_id", "subject_id", "context"].filter((key) => {
     const value = params[key as keyof ManualReviewQueryParams];
-    return value !== undefined && value !== "";
+    return value !== undefined && value !== "" && value !== "all";
   }).length;
 }
 
 export function ManualReviewsPage() {
   const location = useLocation();
-  const { currentUser } = useCurrentUser();
+  const { currentUser, check } = useCurrentUser();
   const { params, setParams, resetParams } = useQueryParams(MANUAL_REVIEW_DEFAULTS);
   const [draft, setDraft] = useState(params);
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -89,9 +96,14 @@ export function ManualReviewsPage() {
   }
 
   const reviews = data ?? [];
-  const selection = useBulkSelection(reviews.map((review) => review.review_id));
+  const visibleReviews =
+    params.context === "mine"
+      ? reviews.filter((review) => matchesSessionContext(review, currentUser))
+      : reviews;
+  const selection = useBulkSelection(visibleReviews.map((review) => review.review_id));
   const returnTo = `${location.pathname}${location.search}`;
-  const currentReviewId = params.review_id || reviews[0]?.review_id || null;
+  const currentReviewId = params.detail === "closed" ? null : params.review_id || visibleReviews[0]?.review_id || null;
+  const bulkPermission = check("bulk:write");
   const {
     data: selectedReview,
     loading: selectedLoading,
@@ -107,8 +119,8 @@ export function ManualReviewsPage() {
   };
 
   async function bulkApprove() {
-    if (bulkBusy || selection.selectedCount === 0) return;
-    const selectedReviews = reviews.filter((review) => selection.selectedIds.has(review.review_id));
+    if (bulkBusy || selection.selectedCount === 0 || !bulkPermission.allowed) return;
+    const selectedReviews = visibleReviews.filter((review) => selection.selectedIds.has(review.review_id));
     setBulkBusy(true);
     setBulkError(null);
     setBulkSuccess(null);
@@ -149,17 +161,19 @@ export function ManualReviewsPage() {
         }
       />
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        <button className={`btn ${params.status === "pending" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ status: "pending", offset: 0 })}>
-          Pending
-        </button>
-        <button className={`btn ${params.status === "approved" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ status: "approved", offset: 0 })}>
-          Approved
-        </button>
-        <button className={`btn ${params.review_type === "identity_conflict" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ review_type: "identity_conflict", offset: 0 })}>
-          Identity conflicts
-        </button>
-      </div>
+      <QueueQuickFilters
+        filters={[
+          { label: "Pending", active: params.status === "pending", onClick: () => setParams({ status: "pending", offset: 0 }) },
+          { label: "Approved", active: params.status === "approved", onClick: () => setParams({ status: "approved", offset: 0 }) },
+          { label: "Identity conflicts", active: params.review_type === "identity_conflict", onClick: () => setParams({ review_type: "identity_conflict", offset: 0 }) },
+          {
+            label: "My context",
+            active: params.context === "mine",
+            disabled: !currentUser.organization_id && !currentUser.site_id,
+            onClick: () => setParams({ context: "mine", offset: 0 }),
+          },
+        ]}
+      />
 
       <FilterBar title="Review filters" activeCount={activeReviewFilters(params)} onReset={clearFilters}>
         <form className="grid gap-3 md:grid-cols-2 xl:grid-cols-6" onSubmit={applyFilters}>
@@ -196,6 +210,12 @@ export function ManualReviewsPage() {
           <FormField label="Subject">
             <input className="field" value={draft.subject_id} onChange={(event) => setDraft({ ...draft, subject_id: event.target.value })} placeholder="subject_id" />
           </FormField>
+          <FormField label="Context">
+            <select className="field" value={draft.context} onChange={(event) => setDraft({ ...draft, context: event.target.value as ManualReviewQueryParams["context"] })}>
+              <option value="all">All returned</option>
+              <option value="mine">Current org/site</option>
+            </select>
+          </FormField>
           <FormField label="Limit">
             <select className="field" value={draft.limit} onChange={(event) => setDraft({ ...draft, limit: Number(event.target.value) })}>
               <option value={10}>10</option>
@@ -217,19 +237,20 @@ export function ManualReviewsPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
         <div>
           <DataState loading={loading} error={error} onRetry={refresh}>
-            {reviews.length === 0 ? (
+            {visibleReviews.length === 0 ? (
               <EmptyState label="No manual reviews match the current filters." />
             ) : (
               <>
                 <SelectionToolbar
                   selectedCount={selection.selectedCount}
                   allVisibleSelected={selection.allVisibleSelected}
-                  visibleCount={reviews.length}
+                  visibleCount={visibleReviews.length}
                   onToggleAll={selection.toggleAllVisible}
                   onClear={selection.clearSelection}
                 />
                 <BulkActionBar selectedCount={selection.selectedCount} busy={bulkBusy} error={bulkError} success={bulkSuccess}>
-                  <button className="btn btn-primary" type="button" disabled={bulkBusy} onClick={() => void bulkApprove()}>
+                  {!bulkPermission.allowed ? <div className="basis-full text-xs text-amber-700">{bulkPermission.reason}</div> : null}
+                  <button className="btn btn-primary" type="button" disabled={bulkBusy || !bulkPermission.allowed} onClick={() => void bulkApprove()}>
                     Bulk approve
                   </button>
                 </BulkActionBar>
@@ -243,17 +264,18 @@ export function ManualReviewsPage() {
                           <th className="px-4 py-3">Status</th>
                           <th className="px-4 py-3">Priority</th>
                           <th className="px-4 py-3">Subject</th>
+                          <th className="px-4 py-3">Org / site</th>
                           <th className="px-4 py-3">Event time</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-200 bg-white">
-                        {reviews.map((review) => (
+                        {visibleReviews.map((review) => (
                           <tr
                             key={review.review_id}
                             className={`cursor-pointer align-top hover:bg-zinc-50 ${
                               currentReviewId === review.review_id ? "bg-teal-50/60" : ""
                             }`}
-                            onClick={() => setParams({ review_id: review.review_id })}
+                            onClick={() => setParams({ review_id: review.review_id, detail: "open" })}
                           >
                             <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
                               <input
@@ -272,6 +294,9 @@ export function ManualReviewsPage() {
                             </td>
                             <td className="px-4 py-3">{review.priority}</td>
                             <td className="px-4 py-3">{shortId(review.subject_id)}</td>
+                            <td className="px-4 py-3">
+                              <ContextChips organizationId={review.organization_id} siteId={review.site_id} compact />
+                            </td>
                             <td className="px-4 py-3 whitespace-nowrap">{formatDateTime(review.event_ts)}</td>
                           </tr>
                         ))}
@@ -281,14 +306,14 @@ export function ManualReviewsPage() {
                 </div>
 
                 <div className="space-y-3 md:hidden">
-                  {reviews.map((review) => (
+                  {visibleReviews.map((review) => (
                     <button
                       key={review.review_id}
                       className={`panel w-full p-4 text-left hover:border-teal-200 hover:bg-teal-50/30 ${
                         currentReviewId === review.review_id ? "border-teal-300 bg-teal-50/60" : ""
                       }`}
                       type="button"
-                      onClick={() => setParams({ review_id: review.review_id })}
+                      onClick={() => setParams({ review_id: review.review_id, detail: "open" })}
                     >
                       <span className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-zinc-700" onClick={(event) => event.stopPropagation()}>
                         <input
@@ -304,14 +329,14 @@ export function ManualReviewsPage() {
                   ))}
                 </div>
 
-                <PaginationControls limit={params.limit} offset={params.offset} itemCount={reviews.length} onPage={setPage} />
+                <PaginationControls limit={params.limit} offset={params.offset} itemCount={visibleReviews.length} onPage={setPage} />
               </>
             )}
           </DataState>
         </div>
 
         <DataState loading={selectedLoading} error={selectedError} onRetry={refreshSelected}>
-          <ReviewDetailPanel review={selectedReview} returnTo={returnTo} onChanged={refreshAll} />
+          <ReviewDetailPanel review={selectedReview} returnTo={returnTo} onChanged={refreshAll} onClose={() => setParams({ review_id: "", detail: "closed" })} />
         </DataState>
       </div>
     </div>
@@ -348,7 +373,10 @@ function ReviewSummary({ review }: { review: ManualReview }) {
           <div className="mt-1 break-words">{shortId(review.camera_id)}</div>
         </div>
       </div>
-      <div className="mt-3 text-xs text-zinc-500">{formatDateTime(review.event_ts)}</div>
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+        <span>{formatDateTime(review.event_ts)}</span>
+        <ContextChips organizationId={review.organization_id} siteId={review.site_id} compact />
+      </div>
     </>
   );
 }

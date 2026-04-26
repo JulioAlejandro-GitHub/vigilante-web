@@ -6,6 +6,7 @@ import { CaseSuggestionsPage } from "./pages/CaseSuggestionsPage";
 import { CasesPage } from "./pages/CasesPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ManualReviewsPage } from "./pages/ManualReviewsPage";
+import { MyWorkPage } from "./pages/MyWorkPage";
 import { TimelinePage } from "./pages/TimelinePage";
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/my-work" element={<MyWorkPage />} />
         <Route path="/cases" element={<CasesPage />} />
         <Route path="/cases/:caseId" element={<CaseDetailPage />} />
         <Route path="/manual-reviews" element={<ManualReviewsPage />} />

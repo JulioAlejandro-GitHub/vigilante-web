@@ -1,10 +1,12 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { ContextChips } from "../context/ContextChips";
 import { EvidenceSummary } from "../evidence/EvidenceSummary";
 import { Feedback } from "../Feedback";
 import { FormField } from "../forms/FormField";
 import { KeyValue } from "../KeyValue";
+import { RoleAwareAction } from "../permissions/RoleAwareAction";
 import { QueueActionPanel } from "../queues/QueueActionPanel";
 import { StatusBadge, statusTone } from "../StatusBadge";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
@@ -17,9 +19,10 @@ interface ReviewDetailPanelProps {
   review: ManualReview | null;
   returnTo?: string;
   onChanged: () => void;
+  onClose?: () => void;
 }
 
-export function ReviewDetailPanel({ review, returnTo = "/manual-reviews", onChanged }: ReviewDetailPanelProps) {
+export function ReviewDetailPanel({ review, returnTo = "/manual-reviews", onChanged, onClose }: ReviewDetailPanelProps) {
   const { currentUser, can } = useCurrentUser();
   const [decision, setDecision] = useState<"approved" | "rejected" | "needs_more_evidence">("approved");
   const [reason, setReason] = useState("confirmed by analyst");
@@ -53,7 +56,7 @@ export function ReviewDetailPanel({ review, returnTo = "/manual-reviews", onChan
 
   async function resolve(event: FormEvent) {
     event.preventDefault();
-    if (busy || !can("queue:resolve")) return;
+    if (busy || !can("queue:resolve", { organization_id: currentReview.organization_id, site_id: currentReview.site_id })) return;
 
     const trimmedReason = reason.trim();
     const trimmedActor = actor.trim();
@@ -93,6 +96,16 @@ export function ReviewDetailPanel({ review, returnTo = "/manual-reviews", onChan
       subtitle={`${shortId(review.review_id)} · acting as ${currentUser.username}`}
       status={<StatusBadge value={review.status} tone={statusTone(review.status)} />}
     >
+      {onClose ? (
+        <div className="mb-4 flex justify-end">
+          <button className="btn px-2 py-1 text-xs" type="button" onClick={onClose}>
+            Close detail
+          </button>
+        </div>
+      ) : null}
+      <div className="mb-4">
+        <ContextChips organizationId={review.organization_id} siteId={review.site_id} showEmpty />
+      </div>
       <div className="grid gap-3">
         <KeyValue label="Type" value={review.review_type} />
         <KeyValue label="Subject" value={shortId(review.subject_id)} />
@@ -136,8 +149,8 @@ export function ReviewDetailPanel({ review, returnTo = "/manual-reviews", onChan
 
       <form className="mt-5 space-y-3 border-t border-zinc-200 pt-4" onSubmit={resolve}>
         <Feedback error={formError ?? error} success={success} />
-        {!can("queue:resolve") ? (
-          <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Role cannot resolve reviews in this mock session.</div>
+        {!can("queue:resolve", { organization_id: review.organization_id, site_id: review.site_id }) ? (
+          <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">This review cannot be resolved in the current mock role/context.</div>
         ) : null}
         <FormField label="Decision">
           <select className="field" value={decision} onChange={(event) => setDecision(event.target.value as typeof decision)}>
@@ -167,9 +180,18 @@ export function ReviewDetailPanel({ review, returnTo = "/manual-reviews", onChan
             </FormField>
           </>
         ) : null}
-        <button className="btn btn-primary w-full" type="submit" disabled={busy || !reason.trim() || !actor.trim() || !can("queue:resolve")}>
-          {busy ? "Resolving..." : "Resolve review"}
-        </button>
+        <RoleAwareAction permission="queue:resolve" resourceContext={{ organization_id: review.organization_id, site_id: review.site_id }}>
+          {({ disabled, reason: unavailableReason }) => (
+            <button
+              className="btn btn-primary w-full"
+              type="submit"
+              disabled={busy || disabled || !reason.trim() || !actor.trim()}
+              title={unavailableReason ?? undefined}
+            >
+              {busy ? "Resolving..." : "Resolve review"}
+            </button>
+          )}
+        </RoleAwareAction>
       </form>
     </QueueActionPanel>
   );

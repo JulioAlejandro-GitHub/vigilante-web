@@ -4,12 +4,14 @@ import { Link, useLocation } from "react-router-dom";
 
 import { runSequentialBulkAction } from "../api/bulkActions";
 import { api } from "../api/vigilanteApi";
+import { ContextChips } from "../components/context/ContextChips";
 import { DataState, EmptyState } from "../components/DataState";
 import { FilterBar } from "../components/filters/FilterBar";
 import { FormField } from "../components/forms/FormField";
 import { OwnerBadge } from "../components/ownership/OwnerBadge";
 import { PageHeader } from "../components/PageHeader";
 import { PaginationControls } from "../components/PaginationControls";
+import { QueueQuickFilters } from "../components/queues/QueueQuickFilters";
 import { BulkActionBar } from "../components/selection/BulkActionBar";
 import { SelectionToolbar } from "../components/selection/SelectionToolbar";
 import { StatusBadge, statusTone } from "../components/StatusBadge";
@@ -19,6 +21,7 @@ import { useBulkSelection } from "../hooks/useBulkSelection";
 import { useQueryParams } from "../hooks/useQueryParams";
 import type { CaseListParams, CaseRecord } from "../types/api";
 import { formatDateTime, shortId } from "../utils/format";
+import { matchesOwnershipFilter, type OwnershipFilter } from "../utils/ownership";
 
 type CasesQueryParams = {
   status: string;
@@ -29,7 +32,7 @@ type CasesQueryParams = {
   organization_id: string;
   site_id: string;
   q: string;
-  ownership: "all" | "mine" | "unassigned";
+  ownership: OwnershipFilter;
   limit: number;
   offset: number;
   sort_by: "updated_at" | "opened_at" | "priority";
@@ -61,7 +64,7 @@ function activeCaseFilters(params: CasesQueryParams) {
 
 export function CasesPage() {
   const location = useLocation();
-  const { currentUser, can } = useCurrentUser();
+  const { currentUser, can, check } = useCurrentUser();
   const { params, setParams, resetParams } = useQueryParams(CASE_DEFAULTS);
   const [draft, setDraft] = useState(params);
   const [bulkStatus, setBulkStatus] = useState("in_review");
@@ -71,7 +74,8 @@ export function CasesPage() {
   const filters = useMemo<CaseListParams>(
     () => ({
       status: params.status,
-      assigned_to: params.ownership === "mine" ? currentUser.username : params.ownership === "unassigned" ? "" : params.assigned_to,
+      assigned_to:
+        params.ownership === "mine" ? currentUser.username : params.ownership === "unassigned" || params.ownership === "others" ? "" : params.assigned_to,
       priority: params.priority,
       severity: params.severity,
       case_type: params.case_type,
@@ -105,10 +109,11 @@ export function CasesPage() {
   }
 
   const cases = data ?? [];
-  const visibleCases = params.ownership === "unassigned" ? cases.filter((item) => !item.assigned_to) : cases;
+  const visibleCases = cases.filter((item) => matchesOwnershipFilter(item, params.ownership, currentUser.username));
   const selection = useBulkSelection(visibleCases.map((item) => item.case_id));
   const activeCount = activeCaseFilters(params);
   const returnTo = `${location.pathname}${location.search}`;
+  const bulkPermission = check("bulk:write");
 
   async function runBulk(label: string, action: (caseId: string) => Promise<unknown>) {
     if (bulkBusy || selection.selectedCount === 0 || !can("bulk:write")) return;
@@ -146,20 +151,24 @@ export function CasesPage() {
         }
       />
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        <button className={`btn ${params.ownership === "mine" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ ownership: "mine", assigned_to: currentUser.username, offset: 0 })}>
-          Assigned to me
-        </button>
-        <button className={`btn ${params.ownership === "unassigned" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ ownership: "unassigned", assigned_to: "", offset: 0 })}>
-          Unassigned
-        </button>
-        <button className={`btn ${params.status === "open" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ status: "open", offset: 0 })}>
-          Open
-        </button>
-        <button className={`btn ${params.status === "in_review" ? "btn-primary" : ""}`} type="button" onClick={() => setParams({ status: "in_review", offset: 0 })}>
-          Under review
-        </button>
-      </div>
+      <QueueQuickFilters
+        filters={[
+          { label: "Assigned to me", active: params.ownership === "mine", onClick: () => setParams({ ownership: "mine", assigned_to: currentUser.username, offset: 0 }) },
+          { label: "Someone else", active: params.ownership === "others", onClick: () => setParams({ ownership: "others", assigned_to: "", offset: 0 }) },
+          { label: "Unassigned", active: params.ownership === "unassigned", onClick: () => setParams({ ownership: "unassigned", assigned_to: "", offset: 0 }) },
+          { label: "Open", active: params.status === "open", onClick: () => setParams({ status: "open", offset: 0 }) },
+          { label: "Under review", active: params.status === "in_review", onClick: () => setParams({ status: "in_review", offset: 0 }) },
+          {
+            label: "My context",
+            active:
+              Boolean(currentUser.organization_id || currentUser.site_id) &&
+              params.organization_id === (currentUser.organization_id ?? "") &&
+              params.site_id === (currentUser.site_id ?? ""),
+            disabled: !currentUser.organization_id && !currentUser.site_id,
+            onClick: () => setParams({ organization_id: currentUser.organization_id ?? "", site_id: currentUser.site_id ?? "", offset: 0 }),
+          },
+        ]}
+      />
 
       <FilterBar title="Case filters" activeCount={activeCount} onReset={clearFilters}>
         <form className="grid gap-3 md:grid-cols-2 xl:grid-cols-6" onSubmit={applyFilters}>
@@ -167,6 +176,7 @@ export function CasesPage() {
             <select className="field" value={draft.ownership} onChange={(event) => setDraft({ ...draft, ownership: event.target.value as CasesQueryParams["ownership"] })}>
               <option value="all">All</option>
               <option value="mine">Assigned to me</option>
+              <option value="others">Assigned to someone else</option>
               <option value="unassigned">Unassigned</option>
             </select>
           </FormField>
@@ -273,10 +283,11 @@ export function CasesPage() {
               onClear={selection.clearSelection}
             />
             <BulkActionBar selectedCount={selection.selectedCount} busy={bulkBusy} error={bulkError} success={bulkSuccess}>
+              {!bulkPermission.allowed ? <div className="basis-full text-xs text-amber-700">{bulkPermission.reason}</div> : null}
               <button
                 className="btn btn-primary"
                 type="button"
-                disabled={bulkBusy || !can("bulk:write")}
+                disabled={bulkBusy || !bulkPermission.allowed}
                 onClick={() =>
                   void runBulk("Assign to me", (caseId) =>
                     api.assignCase(caseId, {
@@ -292,7 +303,7 @@ export function CasesPage() {
               <button
                 className="btn"
                 type="button"
-                disabled={bulkBusy || !can("bulk:write")}
+                disabled={bulkBusy || !bulkPermission.allowed}
                 onClick={() =>
                   void runBulk("Unassign", (caseId) =>
                     api.unassignCase(caseId, {
@@ -304,7 +315,7 @@ export function CasesPage() {
               >
                 Unassign
               </button>
-              <select className="field w-auto min-w-36" value={bulkStatus} onChange={(event) => setBulkStatus(event.target.value)} disabled={bulkBusy}>
+              <select className="field w-auto min-w-36" value={bulkStatus} onChange={(event) => setBulkStatus(event.target.value)} disabled={bulkBusy || !bulkPermission.allowed}>
                 <option value="open">open</option>
                 <option value="in_review">in_review</option>
                 <option value="resolved">resolved</option>
@@ -314,7 +325,7 @@ export function CasesPage() {
               <button
                 className="btn"
                 type="button"
-                disabled={bulkBusy || !can("bulk:write")}
+                disabled={bulkBusy || !bulkPermission.allowed}
                 onClick={() =>
                   void runBulk("Change status", (caseId) =>
                     api.changeCaseStatus(caseId, {
@@ -376,8 +387,7 @@ export function CasesPage() {
                           <OwnerBadge assignedTo={item.assigned_to} assignedAt={item.assigned_at} compact />
                         </td>
                         <td className="px-4 py-3">
-                          <div>{shortId(item.organization_id)}</div>
-                          <div className="mt-1 text-xs text-zinc-500">{shortId(item.site_id)}</div>
+                          <ContextChips organizationId={item.organization_id} siteId={item.site_id} compact />
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">{formatDateTime(item.updated_at)}</td>
                       </tr>
@@ -440,8 +450,7 @@ function CaseCard({ item, returnTo, selected, onToggle }: { item: CaseRecord; re
       </div>
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
         <span>Updated {formatDateTime(item.updated_at)}</span>
-        <span>Org {shortId(item.organization_id)}</span>
-        <span>Site {shortId(item.site_id)}</span>
+        <ContextChips organizationId={item.organization_id} siteId={item.site_id} compact />
       </div>
     </div>
   );

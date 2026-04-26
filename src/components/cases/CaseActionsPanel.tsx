@@ -1,10 +1,12 @@
 import { FormEvent, useEffect, useState } from "react";
 
+import { AssignmentActions } from "./AssignmentActions";
 import { Feedback } from "../Feedback";
 import { FormField } from "../forms/FormField";
-import { OwnerBadge } from "../ownership/OwnerBadge";
+import { RoleAwareAction } from "../permissions/RoleAwareAction";
 import { useCurrentUser } from "../../context/CurrentUserContext";
 import { api } from "../../api/vigilanteApi";
+import type { PermissionResourceContext } from "../../types/session";
 import { asErrorMessage } from "../../utils/format";
 
 interface CaseActionsPanelProps {
@@ -12,25 +14,20 @@ interface CaseActionsPanelProps {
   status: string;
   currentOwner: string | null;
   assignedAt?: string | null;
+  resourceContext?: PermissionResourceContext;
   onChanged: () => void;
 }
 
-export function CaseActionsPanel({ caseId, status, currentOwner, assignedAt, onChanged }: CaseActionsPanelProps) {
-  const { currentUser } = useCurrentUser();
+export function CaseActionsPanel({ caseId, status, currentOwner, assignedAt, resourceContext, onChanged }: CaseActionsPanelProps) {
+  const { currentUser, can } = useCurrentUser();
   const [busy, setBusy] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [assignedTo, setAssignedTo] = useState(currentOwner ?? currentUser.username);
   const [actor, setActor] = useState(currentUser.username);
-  const [assignmentReason, setAssignmentReason] = useState("analyst taking ownership");
   const [lifecycleReason, setLifecycleReason] = useState("analyst operational update");
   const [targetStatus, setTargetStatus] = useState(status === "in_review" ? "open" : "in_review");
   const [note, setNote] = useState("");
-
-  useEffect(() => {
-    setAssignedTo(currentOwner ?? currentUser.username);
-  }, [currentOwner, currentUser.username]);
 
   useEffect(() => {
     setActor(currentUser.username);
@@ -68,30 +65,9 @@ export function CaseActionsPanel({ caseId, status, currentOwner, assignedAt, onC
     return true;
   }
 
-  function submitAssign(event: FormEvent) {
-    event.preventDefault();
-    if (!requireFields([["Assigned to", assignedTo], ["Actor", actor]])) return;
-    void run("Assign", () =>
-      api.assignCase(caseId, {
-        assigned_to: assignedTo.trim(),
-        assigned_by: actor.trim(),
-        assignment_reason: assignmentReason.trim() || undefined,
-      }),
-    );
-  }
-
-  function assignToMe() {
-    void run("Assign to me", () =>
-      api.assignCase(caseId, {
-        assigned_to: currentUser.username,
-        assigned_by: currentUser.username,
-        assignment_reason: "analyst taking ownership",
-      }),
-    );
-  }
-
   function submitStatus(event: FormEvent) {
     event.preventDefault();
+    if (!can("case:status", resourceContext)) return;
     if (!requireFields([["Reason", lifecycleReason], ["Actor", actor]])) return;
     void run("Change status", () =>
       api.changeCaseStatus(caseId, { status: targetStatus, reason: lifecycleReason.trim(), changed_by: actor.trim() }),
@@ -100,66 +76,36 @@ export function CaseActionsPanel({ caseId, status, currentOwner, assignedAt, onC
 
   function submitNote(event: FormEvent) {
     event.preventDefault();
+    if (!can("case:note", resourceContext)) return;
     if (!requireFields([["Note", note], ["Author", actor]])) return;
     void run("Add note", () => api.addCaseNote(caseId, { author: actor.trim(), note_text: note.trim() }), () => setNote(""));
   }
 
   const actionDisabled = busy !== null;
-  const isMine = currentOwner === currentUser.username;
 
   return (
     <aside className="panel p-4 xl:sticky xl:top-24 xl:self-start">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-zinc-950">Case actions</h2>
-          <div className="mt-1 text-xs text-zinc-500">Acting as {currentUser.username}</div>
+          <div className="mt-1 text-xs text-zinc-500">
+            Acting as {currentUser.username} · {currentUser.role}
+          </div>
         </div>
-        <OwnerBadge assignedTo={currentOwner} assignedAt={assignedAt} compact />
       </div>
       <div className="mt-4">
         <Feedback error={formError ?? error} success={success} />
       </div>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-        <button className="btn btn-primary" type="button" disabled={actionDisabled || isMine} onClick={assignToMe}>
-          {busy === "Assign to me" ? "Assigning..." : isMine ? "Assigned to me" : "Assign to me"}
-        </button>
-        <button
-          className="btn"
-          type="button"
-          disabled={actionDisabled || !currentOwner}
-          onClick={() =>
-            void run("Unassign", () =>
-              api.unassignCase(caseId, { assigned_by: currentUser.username, assignment_reason: "returning to unassigned queue" }),
-            )
-          }
-        >
-          {busy === "Unassign" ? "Unassigning..." : "Unassign"}
-        </button>
+      <div className="mt-4">
+        <AssignmentActions
+          caseId={caseId}
+          currentOwner={currentOwner}
+          assignedAt={assignedAt}
+          resourceContext={resourceContext}
+          onChanged={onChanged}
+        />
       </div>
-
-      <form className="mt-5 space-y-3 border-t border-zinc-200 pt-4" onSubmit={submitAssign}>
-        <div className="label">Assignment</div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-          <FormField label="Assigned to">
-            <input className="field" value={assignedTo} onChange={(event) => setAssignedTo(event.target.value)} placeholder={currentUser.username} />
-          </FormField>
-          <FormField label="Actor">
-            <input className="field" value={actor} onChange={(event) => setActor(event.target.value)} placeholder={currentUser.username} />
-          </FormField>
-        </div>
-        <FormField label="Reason">
-          <input
-            className="field"
-            value={assignmentReason}
-            onChange={(event) => setAssignmentReason(event.target.value)}
-            placeholder="analyst taking ownership"
-          />
-        </FormField>
-        <button className="btn btn-primary w-full" type="submit" disabled={actionDisabled || !assignedTo.trim() || !actor.trim()}>
-          {busy === "Assign" ? "Assigning..." : "Assign / reassign"}
-        </button>
-      </form>
 
       <form className="mt-5 space-y-3 border-t border-zinc-200 pt-4" onSubmit={submitStatus}>
         <div className="label">Lifecycle</div>
@@ -180,32 +126,53 @@ export function CaseActionsPanel({ caseId, status, currentOwner, assignedAt, onC
             placeholder="analyst operational update"
           />
         </FormField>
-        <button className="btn btn-primary w-full" type="submit" disabled={actionDisabled || !lifecycleReason.trim() || !actor.trim()}>
-          {busy === "Change status" ? "Changing..." : "Change status"}
-        </button>
+        <RoleAwareAction permission="case:status" resourceContext={resourceContext}>
+          {({ disabled, reason }) => (
+            <button
+              className="btn btn-primary w-full"
+              type="submit"
+              disabled={actionDisabled || disabled || !lifecycleReason.trim() || !actor.trim()}
+              title={reason ?? undefined}
+            >
+              {busy === "Change status" ? "Changing..." : "Change status"}
+            </button>
+          )}
+        </RoleAwareAction>
         <div className="grid gap-2 sm:grid-cols-2">
-          <button
-            className="btn btn-danger"
-            type="button"
-            disabled={actionDisabled || !lifecycleReason.trim() || !actor.trim()}
-            onClick={() => {
-              if (!requireFields([["Reason", lifecycleReason], ["Actor", actor]])) return;
-              void run("Close", () => api.closeCase(caseId, { reason: lifecycleReason.trim(), changed_by: actor.trim() }));
-            }}
-          >
-            {busy === "Close" ? "Closing..." : "Close"}
-          </button>
-          <button
-            className="btn"
-            type="button"
-            disabled={actionDisabled || !lifecycleReason.trim() || !actor.trim()}
-            onClick={() => {
-              if (!requireFields([["Reason", lifecycleReason], ["Actor", actor]])) return;
-              void run("Reopen", () => api.reopenCase(caseId, { reason: lifecycleReason.trim(), changed_by: actor.trim() }));
-            }}
-          >
-            {busy === "Reopen" ? "Reopening..." : "Reopen"}
-          </button>
+          <RoleAwareAction permission="case:close" resourceContext={resourceContext}>
+            {({ disabled, reason }) => (
+              <button
+                className="btn btn-danger w-full"
+                type="button"
+                disabled={actionDisabled || disabled || !lifecycleReason.trim() || !actor.trim()}
+                title={reason ?? undefined}
+                onClick={() => {
+                  if (!can("case:close", resourceContext)) return;
+                  if (!requireFields([["Reason", lifecycleReason], ["Actor", actor]])) return;
+                  void run("Close", () => api.closeCase(caseId, { reason: lifecycleReason.trim(), changed_by: actor.trim() }));
+                }}
+              >
+                {busy === "Close" ? "Closing..." : "Close"}
+              </button>
+            )}
+          </RoleAwareAction>
+          <RoleAwareAction permission="case:close" resourceContext={resourceContext}>
+            {({ disabled, reason }) => (
+              <button
+                className="btn w-full"
+                type="button"
+                disabled={actionDisabled || disabled || !lifecycleReason.trim() || !actor.trim()}
+                title={reason ?? undefined}
+                onClick={() => {
+                  if (!can("case:close", resourceContext)) return;
+                  if (!requireFields([["Reason", lifecycleReason], ["Actor", actor]])) return;
+                  void run("Reopen", () => api.reopenCase(caseId, { reason: lifecycleReason.trim(), changed_by: actor.trim() }));
+                }}
+              >
+                {busy === "Reopen" ? "Reopening..." : "Reopen"}
+              </button>
+            )}
+          </RoleAwareAction>
         </div>
       </form>
 
@@ -214,9 +181,18 @@ export function CaseActionsPanel({ caseId, status, currentOwner, assignedAt, onC
         <FormField label="Note text">
           <textarea className="field min-h-28 resize-y" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Analyst note" />
         </FormField>
-        <button className="btn btn-primary w-full" type="submit" disabled={actionDisabled || !note.trim() || !actor.trim()}>
-          {busy === "Add note" ? "Adding..." : "Add note"}
-        </button>
+        <RoleAwareAction permission="case:note" resourceContext={resourceContext}>
+          {({ disabled, reason }) => (
+            <button
+              className="btn btn-primary w-full"
+              type="submit"
+              disabled={actionDisabled || disabled || !note.trim() || !actor.trim()}
+              title={reason ?? undefined}
+            >
+              {busy === "Add note" ? "Adding..." : "Add note"}
+            </button>
+          )}
+        </RoleAwareAction>
       </form>
     </aside>
   );

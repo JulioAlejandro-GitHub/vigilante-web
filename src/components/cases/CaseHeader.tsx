@@ -1,4 +1,5 @@
 import { KeyValue } from "../KeyValue";
+import { ContextChips } from "../context/ContextChips";
 import { OwnerBadge } from "../ownership/OwnerBadge";
 import { StatusBadge, statusTone } from "../StatusBadge";
 import type { CaseDetail } from "../../types/api";
@@ -23,6 +24,9 @@ export function CaseHeader({ detail }: CaseHeaderProps) {
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-500">
             <span>{detail.case_code}</span>
             <span>{detail.case_type}</span>
+          </div>
+          <div className="mt-3">
+            <ContextChips organizationId={detail.organization_id} siteId={detail.site_id} showEmpty />
           </div>
         </div>
         <div className="grid gap-3 rounded border border-zinc-200 bg-zinc-50 p-3 text-sm sm:grid-cols-3 lg:min-w-[460px]">

@@ -1,4 +1,5 @@
 import { FaceDetectionCard } from "./FaceDetectionCard";
+import { MediaPlaceholderPanel } from "./MediaPlaceholderPanel";
 import { SemanticDescriptorCard } from "./SemanticDescriptorCard";
 import { SourceEventSummary } from "./SourceEventSummary";
 import { TechnicalMetadataGrid } from "./TechnicalMetadataGrid";
@@ -26,7 +27,9 @@ export function EvidenceSection({ payload, sourceEventId, title = "Evidence and 
       <section className="rounded border border-dashed border-zinc-300 bg-white p-4">
         <h3 className="text-sm font-semibold text-zinc-950">{title}</h3>
         <p className="mt-2 text-sm text-zinc-600">No technical evidence payload is available for this item yet.</p>
-        <MediaPlaceholder />
+        <div className="mt-3">
+          <MediaPlaceholderPanel sourceEventId={sourceEventId} compact={compact} />
+        </div>
       </section>
     );
   }
@@ -69,17 +72,8 @@ export function EvidenceSection({ payload, sourceEventId, title = "Evidence and 
       ) : null}
 
       <SourceEventSummary sourceEvent={sourceEvent} sourceEventId={sourceEventId} />
-      <MediaPlaceholder />
+      <MediaPlaceholderPanel sourceEventId={sourceEventId} compact={compact} />
       <TechnicalPayloadPanel payload={payload} />
     </section>
-  );
-}
-
-function MediaPlaceholder() {
-  return (
-    <div className="rounded border border-dashed border-zinc-300 bg-zinc-50 p-3 text-sm text-zinc-600">
-      Media viewer placeholder. When image or video evidence endpoints exist, this section can host the real viewer without changing the
-      surrounding investigation workflow.
-    </div>
   );
 }

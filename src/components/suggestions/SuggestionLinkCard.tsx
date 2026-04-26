@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+import { ContextChips } from "../context/ContextChips";
 import { StatusBadge, statusTone } from "../StatusBadge";
 import type { CaseSuggestion } from "../../types/api";
 import { formatDateTime, shortId } from "../../utils/format";
@@ -24,6 +25,9 @@ export function SuggestionLinkCard({ suggestion, to }: SuggestionLinkCardProps) 
         <span>Subject {shortId(suggestion.subject_id)}</span>
         <span>Camera {shortId(suggestion.camera_id)}</span>
         <span>{formatDateTime(suggestion.event_ts)}</span>
+      </div>
+      <div className="mt-3">
+        <ContextChips organizationId={suggestion.organization_id} siteId={suggestion.site_id} compact />
       </div>
     </Link>
   );

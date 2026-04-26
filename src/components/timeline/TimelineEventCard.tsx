@@ -1,10 +1,13 @@
 import { Link, useLocation } from "react-router-dom";
 
+import { ContextChips } from "../context/ContextChips";
 import { EvidenceSection } from "../evidence/EvidenceSection";
+import { OwnerBadge } from "../ownership/OwnerBadge";
+import { EventTypeBadge } from "./EventTypeBadge";
 import { TechnicalMetadataGrid } from "../evidence/TechnicalMetadataGrid";
 import { StatusBadge, statusTone } from "../StatusBadge";
 import type { TimelineEvent } from "../../types/api";
-import { payloadString } from "../../utils/evidence";
+import { asRecord, payloadString } from "../../utils/evidence";
 import { formatDateTime, shortId } from "../../utils/format";
 
 interface TimelineEventCardProps {
@@ -17,15 +20,19 @@ export function TimelineEventCard({ item }: TimelineEventCardProps) {
   const reviewId = payloadString(item.payload, ["review_id", "manual_review_id"]);
   const suggestionId = payloadString(item.payload, ["suggestion_id", "case_suggestion_id"]);
   const confidence = item.confidence ?? payloadString(item.payload, ["confidence", "match_confidence"]);
+  const assignment = asRecord(item.payload.case_assignment);
+  const assignedTo = typeof assignment?.assigned_to === "string" ? assignment.assigned_to : null;
+  const assignedAt = typeof assignment?.assigned_at === "string" ? assignment.assigned_at : null;
 
   return (
-    <article className="p-4">
+    <article className="p-3 sm:p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge value={item.event_type} tone={statusTone(item.event_type)} />
+            <EventTypeBadge eventType={item.event_type} />
             <StatusBadge value={item.severity} tone={statusTone(item.severity)} />
             <span className="rounded bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">{item.source_component}</span>
+            {assignedTo || item.event_type === "case_unassigned" ? <OwnerBadge assignedTo={assignedTo} assignedAt={assignedAt} compact /> : null}
           </div>
           <p className="mt-2 text-sm text-zinc-900">{item.summary}</p>
           <div className="mt-3 flex flex-wrap gap-2 text-xs">
@@ -61,7 +68,8 @@ export function TimelineEventCard({ item }: TimelineEventCardProps) {
         </div>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-3 flex flex-col gap-3">
+        <ContextChips organizationId={item.organization_id} siteId={item.site_id} />
         <TechnicalMetadataGrid
           rows={[
             { label: "Camera", value: shortId(item.camera_id) },

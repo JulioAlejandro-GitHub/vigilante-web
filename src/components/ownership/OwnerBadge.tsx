@@ -2,6 +2,7 @@ import { UserCheck, UserMinus, Users } from "lucide-react";
 
 import { useCurrentUser } from "../../context/CurrentUserContext";
 import { formatDateTime } from "../../utils/format";
+import { ownershipState } from "../../utils/ownership";
 
 interface OwnerBadgeProps {
   assignedTo: string | null | undefined;
@@ -11,7 +12,7 @@ interface OwnerBadgeProps {
 
 export function OwnerBadge({ assignedTo, assignedAt, compact = false }: OwnerBadgeProps) {
   const { currentUser } = useCurrentUser();
-  const state = !assignedTo ? "unassigned" : assignedTo === currentUser.username ? "mine" : "other";
+  const state = ownershipState(assignedTo, currentUser.username);
   const Icon = state === "mine" ? UserCheck : state === "other" ? Users : UserMinus;
   const label = state === "mine" ? "Assigned to me" : state === "other" ? `Assigned to ${assignedTo}` : "Unassigned";
   const classes =

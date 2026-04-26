@@ -6,7 +6,10 @@ import { DataState } from "../components/DataState";
 import { FilterBar } from "../components/filters/FilterBar";
 import { FormField } from "../components/forms/FormField";
 import { PageHeader } from "../components/PageHeader";
+import { QueueQuickFilters } from "../components/queues/QueueQuickFilters";
 import { TimelineList } from "../components/TimelineList";
+import { eventCategory } from "../components/timeline/EventTypeBadge";
+import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useQueryParams } from "../hooks/useQueryParams";
 import type { TimelineEvent, TimelineListParams } from "../types/api";
@@ -19,6 +22,7 @@ type TimelineQueryParams = {
   source_event_id: string;
   organization_id: string;
   site_id: string;
+  event_group: "all" | "operational" | "technical" | "assignments";
   limit: number;
 };
 
@@ -30,17 +34,19 @@ const TIMELINE_DEFAULTS: TimelineQueryParams = {
   source_event_id: "",
   organization_id: "",
   site_id: "",
+  event_group: "all",
   limit: 50,
 };
 
 function activeTimelineFilters(params: TimelineQueryParams) {
-  return ["event_type", "camera_id", "subject_id", "case_id", "source_event_id", "organization_id", "site_id"].filter((key) => {
+  return ["event_type", "camera_id", "subject_id", "case_id", "source_event_id", "organization_id", "site_id", "event_group"].filter((key) => {
     const value = params[key as keyof TimelineQueryParams];
-    return value !== undefined && value !== "";
+    return value !== undefined && value !== "" && value !== "all";
   }).length;
 }
 
 export function TimelinePage() {
+  const { currentUser } = useCurrentUser();
   const { params, setParams, resetParams } = useQueryParams(TIMELINE_DEFAULTS);
   const [draft, setDraft] = useState(params);
   const filters = useMemo<TimelineListParams>(
@@ -59,6 +65,20 @@ export function TimelinePage() {
     async () => (params.source_event_id ? [await api.getTimelineEvent(params.source_event_id)] : api.listTimeline(filters)),
     [params.source_event_id, JSON.stringify(filters)],
   );
+
+  const visibleEvents = useMemo(() => {
+    const events = data ?? [];
+    if (params.event_group === "operational") {
+      return events.filter((item) => eventCategory(item.event_type) === "operational");
+    }
+    if (params.event_group === "technical") {
+      return events.filter((item) => eventCategory(item.event_type) === "technical");
+    }
+    if (params.event_group === "assignments") {
+      return events.filter((item) => ["case_assigned", "case_reassigned", "case_unassigned"].includes(item.event_type));
+    }
+    return events;
+  }, [data, params.event_group]);
 
   useEffect(() => {
     setDraft(params);
@@ -81,8 +101,41 @@ export function TimelinePage() {
           </button>
         }
       />
+      <QueueQuickFilters
+        filters={[
+          { label: "All events", active: params.event_group === "all" && !params.event_type, onClick: () => setParams({ event_group: "all", event_type: "" }) },
+          { label: "Operational", active: params.event_group === "operational", onClick: () => setParams({ event_group: "operational", event_type: "" }) },
+          { label: "Technical", active: params.event_group === "technical", onClick: () => setParams({ event_group: "technical", event_type: "" }) },
+          { label: "Assignments", active: params.event_group === "assignments", onClick: () => setParams({ event_group: "assignments", event_type: "" }) },
+          {
+            label: "My context",
+            active:
+              Boolean(currentUser.organization_id || currentUser.site_id) &&
+              params.organization_id === (currentUser.organization_id ?? "") &&
+              params.site_id === (currentUser.site_id ?? ""),
+            disabled: !currentUser.organization_id && !currentUser.site_id,
+            onClick: () =>
+              setParams({
+                organization_id: currentUser.organization_id ?? "",
+                site_id: currentUser.site_id ?? "",
+              }),
+          },
+        ]}
+      />
       <FilterBar title="Timeline filters" activeCount={activeTimelineFilters(params)} onReset={resetParams}>
         <form className="grid gap-3 md:grid-cols-2 xl:grid-cols-6" onSubmit={applyFilters}>
+          <FormField label="Event group">
+            <select
+              className="field"
+              value={draft.event_group}
+              onChange={(event) => setDraft({ ...draft, event_group: event.target.value as TimelineQueryParams["event_group"] })}
+            >
+              <option value="all">all</option>
+              <option value="operational">operational</option>
+              <option value="technical">technical</option>
+              <option value="assignments">assignments</option>
+            </select>
+          </FormField>
           <FormField label="Event type">
             <input className="field" value={draft.event_type} onChange={(event) => setDraft({ ...draft, event_type: event.target.value })} placeholder="case_assigned" />
           </FormField>
@@ -132,7 +185,7 @@ export function TimelinePage() {
         </form>
       </FilterBar>
       <DataState loading={loading} error={error} onRetry={refresh}>
-        <TimelineList items={data ?? []} />
+        <TimelineList items={visibleEvents} />
       </DataState>
     </div>
   );

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+import { ContextChips } from "../context/ContextChips";
 import { KeyValue } from "../KeyValue";
 import { StatusBadge, statusTone } from "../StatusBadge";
 import type { CaseDetail } from "../../types/api";
@@ -16,6 +17,9 @@ export function CaseSummaryPanel({ detail }: CaseSummaryPanelProps) {
         <div>
           <h2 className="text-base font-semibold text-zinc-950">Case overview</h2>
           <p className="mt-1 text-sm text-zinc-600">Operational identifiers, origin and current lifecycle state.</p>
+          <div className="mt-3">
+            <ContextChips organizationId={detail.organization_id} siteId={detail.site_id} showEmpty />
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <StatusBadge value={detail.status} tone={statusTone(detail.status)} />

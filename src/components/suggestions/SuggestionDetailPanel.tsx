@@ -1,10 +1,12 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { ContextChips } from "../context/ContextChips";
 import { EvidenceSummary } from "../evidence/EvidenceSummary";
 import { Feedback } from "../Feedback";
 import { FormField } from "../forms/FormField";
 import { KeyValue } from "../KeyValue";
+import { RoleAwareAction } from "../permissions/RoleAwareAction";
 import { QueueActionPanel } from "../queues/QueueActionPanel";
 import { StatusBadge, statusTone } from "../StatusBadge";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
@@ -17,6 +19,7 @@ interface SuggestionDetailPanelProps {
   suggestion: CaseSuggestion | null;
   returnTo: string;
   onChanged: () => void;
+  onClose?: () => void;
 }
 
 function suggestedTitle(suggestion: CaseSuggestion | null) {
@@ -29,7 +32,7 @@ function payloadString(payload: Record<string, unknown>, key: string, fallback: 
   return typeof value === "string" && value.trim() ? value : fallback;
 }
 
-export function SuggestionDetailPanel({ suggestion, returnTo, onChanged }: SuggestionDetailPanelProps) {
+export function SuggestionDetailPanel({ suggestion, returnTo, onChanged, onClose }: SuggestionDetailPanelProps) {
   const { currentUser, can } = useCurrentUser();
   const [decision, setDecision] = useState<"accepted" | "rejected" | "deferred">("accepted");
   const [reason, setReason] = useState("sufficient evidence for case creation");
@@ -88,6 +91,7 @@ export function SuggestionDetailPanel({ suggestion, returnTo, onChanged }: Sugge
 
   function resolve(event: FormEvent) {
     event.preventDefault();
+    if (!can("suggestion:resolve", { organization_id: currentSuggestion.organization_id, site_id: currentSuggestion.site_id })) return;
     const trimmedReason = reason.trim();
     const trimmedActor = actor.trim();
     if (!trimmedReason || !trimmedActor) {
@@ -100,6 +104,7 @@ export function SuggestionDetailPanel({ suggestion, returnTo, onChanged }: Sugge
   }
 
   function promote() {
+    if (!can("suggestion:promote", { organization_id: currentSuggestion.organization_id, site_id: currentSuggestion.site_id })) return;
     const trimmedActor = actor.trim();
     const trimmedTitle = caseTitle.trim();
     const trimmedCaseType = caseType.trim();
@@ -125,6 +130,16 @@ export function SuggestionDetailPanel({ suggestion, returnTo, onChanged }: Sugge
       subtitle={`${shortId(suggestion.suggestion_id)} · acting as ${currentUser.username}`}
       status={<StatusBadge value={suggestion.status} tone={statusTone(suggestion.status)} />}
     >
+      {onClose ? (
+        <div className="mb-4 flex justify-end">
+          <button className="btn px-2 py-1 text-xs" type="button" onClick={onClose}>
+            Close detail
+          </button>
+        </div>
+      ) : null}
+      <div className="mb-4">
+        <ContextChips organizationId={suggestion.organization_id} siteId={suggestion.site_id} showEmpty />
+      </div>
       <div className="grid gap-3">
         <KeyValue label="Type" value={suggestion.suggestion_type} />
         <KeyValue label="Evidence" value={suggestion.evidence_count} />
@@ -178,9 +193,18 @@ export function SuggestionDetailPanel({ suggestion, returnTo, onChanged }: Sugge
         <FormField label="Resolved by">
           <input className="field" value={actor} onChange={(event) => setActor(event.target.value)} placeholder={currentUser.username} />
         </FormField>
-        <button className="btn btn-primary w-full" type="submit" disabled={busy !== null || !reason.trim() || !actor.trim() || !can("queue:resolve")}>
-          {busy === "Resolve suggestion" ? "Resolving..." : "Resolve suggestion"}
-        </button>
+        <RoleAwareAction permission="suggestion:resolve" resourceContext={{ organization_id: suggestion.organization_id, site_id: suggestion.site_id }}>
+          {({ disabled, reason: unavailableReason }) => (
+            <button
+              className="btn btn-primary w-full"
+              type="submit"
+              disabled={busy !== null || disabled || !reason.trim() || !actor.trim()}
+              title={unavailableReason ?? undefined}
+            >
+              {busy === "Resolve suggestion" ? "Resolving..." : "Resolve suggestion"}
+            </button>
+          )}
+        </RoleAwareAction>
       </form>
 
       <div className="mt-5 space-y-3 border-t border-zinc-200 pt-4">
@@ -208,14 +232,19 @@ export function SuggestionDetailPanel({ suggestion, returnTo, onChanged }: Sugge
             </select>
           </FormField>
         </div>
-        <button
-          className="btn w-full"
-          type="button"
-          disabled={busy !== null || !caseTitle.trim() || !caseType.trim() || !actor.trim() || !can("suggestion:promote")}
-          onClick={promote}
-        >
-          {busy === "Promote to case" ? "Promoting..." : "Promote to case"}
-        </button>
+        <RoleAwareAction permission="suggestion:promote" resourceContext={{ organization_id: suggestion.organization_id, site_id: suggestion.site_id }}>
+          {({ disabled, reason: unavailableReason }) => (
+            <button
+              className="btn w-full"
+              type="button"
+              disabled={busy !== null || disabled || !caseTitle.trim() || !caseType.trim() || !actor.trim()}
+              onClick={promote}
+              title={unavailableReason ?? undefined}
+            >
+              {busy === "Promote to case" ? "Promoting..." : "Promote to case"}
+            </button>
+          )}
+        </RoleAwareAction>
       </div>
     </QueueActionPanel>
   );

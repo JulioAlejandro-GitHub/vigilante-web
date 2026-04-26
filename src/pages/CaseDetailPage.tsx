@@ -6,6 +6,7 @@ import { CaseActionsPanel } from "../components/cases/CaseActionsPanel";
 import { CaseHeader } from "../components/cases/CaseHeader";
 import { CaseSummaryPanel } from "../components/cases/CaseSummaryPanel";
 import { CaseTabId, CaseTabs } from "../components/cases/CaseTabs";
+import { OwnershipHistoryPreview } from "../components/cases/OwnershipHistoryPreview";
 import { RelatedEntitiesPanel } from "../components/cases/RelatedEntitiesPanel";
 import { DataState, EmptyState } from "../components/DataState";
 import { EvidenceSection } from "../components/evidence/EvidenceSection";
@@ -132,6 +133,7 @@ function CaseDetailContent({
           {activeTab === "overview" ? (
             <>
               <CaseSummaryPanel detail={detail} />
+              <OwnershipHistoryPreview timeline={timeline} currentOwner={detail.assigned_to} />
               <RelatedEntitiesPanel reviews={reviews} suggestions={suggestions} reviewHref={reviewHref} suggestionHref={suggestionHref} />
               <section>
                 <SectionHeader title="Recent timeline" count={timeline.length} />
@@ -183,6 +185,7 @@ function CaseDetailContent({
           status={detail.status}
           currentOwner={detail.assigned_to}
           assignedAt={detail.assigned_at}
+          resourceContext={{ organization_id: detail.organization_id, site_id: detail.site_id }}
           onChanged={onChanged}
         />
       </div>
