@@ -56,7 +56,7 @@ function DashboardContent({ summary, currentUser }: { summary: DashboardSummary;
         ) : null}
       </section>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <WorkQueueCard
           label="My cases"
           value={summary.cases_assigned_to_user}
@@ -71,6 +71,13 @@ function DashboardContent({ summary, currentUser }: { summary: DashboardSummary;
           to="/cases?status=open&limit=25&offset=0&sort_by=updated_at&sort_order=desc"
           icon={FileText}
           description="Active case intake"
+        />
+        <WorkQueueCard
+          label="Under review"
+          value={summary.under_review_cases}
+          to="/cases?status=in_review&limit=25&offset=0&sort_by=updated_at&sort_order=desc"
+          icon={Search}
+          description="Cases already in analyst workflow"
         />
         <WorkQueueCard
           label="Pending reviews"
@@ -105,6 +112,9 @@ function DashboardContent({ summary, currentUser }: { summary: DashboardSummary;
             <Link className="btn" to="/cases?ownership=unassigned&limit=25&offset=0&sort_by=updated_at&sort_order=desc">
               Unassigned
             </Link>
+            <Link className="btn" to="/cases?status=in_review&limit=25&offset=0&sort_by=updated_at&sort_order=desc">
+              Under review
+            </Link>
             <Link className="btn" to="/cases?limit=25&offset=0&sort_by=updated_at&sort_order=desc">
               All cases
             </Link>
@@ -119,11 +129,15 @@ function DashboardContent({ summary, currentUser }: { summary: DashboardSummary;
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link className="btn justify-between" to="/case-suggestions?status=pending&limit=25&offset=0">
-              Triage suggestions
+              Pending case suggestions
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link className="btn justify-between" to="/timeline?limit=50">
-              Audit timeline
+              Forensic timeline
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link className="btn justify-between" to={`/timeline?organization_id=${encodeURIComponent(currentUser.organization_id ?? "")}&site_id=${encodeURIComponent(currentUser.site_id ?? "")}&limit=50`}>
+              Timeline in my context
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>

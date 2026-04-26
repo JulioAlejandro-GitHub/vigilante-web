@@ -1,17 +1,24 @@
-import { ArrowLeft, RefreshCw } from "lucide-react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Activity, ClipboardList, FileText, MessageSquare, RefreshCw, Search, ShieldCheck } from "lucide-react";
+import { useSearchParams, useParams } from "react-router-dom";
 
 import { api } from "../api/vigilanteApi";
 import { CaseActionsPanel } from "../components/cases/CaseActionsPanel";
 import { CaseHeader } from "../components/cases/CaseHeader";
+import { CaseSummaryPanel } from "../components/cases/CaseSummaryPanel";
+import { CaseTabId, CaseTabs } from "../components/cases/CaseTabs";
+import { RelatedEntitiesPanel } from "../components/cases/RelatedEntitiesPanel";
 import { DataState, EmptyState } from "../components/DataState";
+import { EvidenceSection } from "../components/evidence/EvidenceSection";
+import { ContextualBackLink } from "../components/navigation/ContextualBackLink";
 import { Breadcrumbs } from "../components/navigation/Breadcrumbs";
 import { PageHeader } from "../components/PageHeader";
-import { StatusBadge, statusTone } from "../components/StatusBadge";
+import { ReviewLinkCard } from "../components/reviews/ReviewLinkCard";
+import { SuggestionLinkCard } from "../components/suggestions/SuggestionLinkCard";
 import { TimelineList } from "../components/TimelineList";
 import { useAsyncData } from "../hooks/useAsyncData";
+import { useNavigationContext } from "../hooks/useNavigationContext";
 import type { CaseDetail, CaseNote, CaseSuggestion, ManualReview, TimelineEvent } from "../types/api";
-import { formatDateTime, shortId } from "../utils/format";
+import { formatDateTime } from "../utils/format";
 
 interface DetailBundle {
   detail: CaseDetail;
@@ -21,14 +28,17 @@ interface DetailBundle {
   suggestions: CaseSuggestion[];
 }
 
-interface LocationState {
-  returnTo?: string;
+const VALID_TABS: CaseTabId[] = ["overview", "timeline", "notes", "reviews", "suggestions", "evidence"];
+
+function normalizeTab(value: string | null): CaseTabId {
+  return VALID_TABS.includes(value as CaseTabId) ? (value as CaseTabId) : "overview";
 }
 
 export function CaseDetailPage() {
   const { caseId = "" } = useParams();
-  const location = useLocation();
-  const returnTo = (location.state as LocationState | null)?.returnTo ?? "/cases";
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigation = useNavigationContext("/cases");
+  const activeTab = normalizeTab(searchParams.get("tab"));
   const { data, loading, error, refresh } = useAsyncData<DetailBundle>(
     async () => {
       const [detail, timeline, notes, reviews, suggestions] = await Promise.all([
@@ -43,18 +53,25 @@ export function CaseDetailPage() {
     [caseId],
   );
 
+  function setActiveTab(tab: CaseTabId) {
+    const next = new URLSearchParams(searchParams);
+    if (tab === "overview") {
+      next.delete("tab");
+    } else {
+      next.set("tab", tab);
+    }
+    setSearchParams(next);
+  }
+
   return (
     <div>
-      <Breadcrumbs items={[{ label: "Results", to: returnTo }, { label: data?.detail.case_code ?? "Case detail" }]} />
+      <Breadcrumbs items={[{ label: "Results", to: navigation.returnTo }, { label: data?.detail.case_code ?? "Case detail" }]} />
       <PageHeader
         title={data?.detail.title ?? "Case detail"}
         description={caseId}
         actions={
           <>
-            <Link className="btn" to={returnTo}>
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Link>
+            <ContextualBackLink to={navigation.returnTo} label="Back to results" />
             <button className="btn" type="button" onClick={refresh}>
               <RefreshCw className="h-4 w-4" />
               Refresh
@@ -63,27 +80,102 @@ export function CaseDetailPage() {
         }
       />
       <DataState loading={loading} error={error} onRetry={refresh}>
-        {data ? <CaseDetailContent bundle={data} onChanged={refresh} /> : null}
+        {data ? (
+          <CaseDetailContent
+            bundle={data}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            onChanged={refresh}
+            navigation={navigation}
+          />
+        ) : null}
       </DataState>
     </div>
   );
 }
 
-function CaseDetailContent({ bundle, onChanged }: { bundle: DetailBundle; onChanged: () => void }) {
+function CaseDetailContent({
+  bundle,
+  activeTab,
+  onTabChange,
+  onChanged,
+  navigation,
+}: {
+  bundle: DetailBundle;
+  activeTab: CaseTabId;
+  onTabChange: (tab: CaseTabId) => void;
+  onChanged: () => void;
+  navigation: ReturnType<typeof useNavigationContext>;
+}) {
   const { detail, notes, reviews, suggestions, timeline } = bundle;
+  const reviewHref = (reviewId: string) => navigation.withReturnTo(navigation.reviewHref(reviewId));
+  const suggestionHref = (suggestionId: string) => navigation.withReturnTo(navigation.suggestionHref(suggestionId));
 
   return (
     <div className="space-y-6">
       <CaseHeader detail={detail} />
+      <CaseTabs
+        activeTab={activeTab}
+        onChange={onTabChange}
+        tabs={[
+          { id: "overview", label: "Overview", icon: <ShieldCheck className="h-4 w-4" /> },
+          { id: "timeline", label: "Timeline", count: timeline.length, icon: <Activity className="h-4 w-4" /> },
+          { id: "notes", label: "Notes", count: notes.length, icon: <MessageSquare className="h-4 w-4" /> },
+          { id: "reviews", label: "Reviews", count: reviews.length, icon: <ClipboardList className="h-4 w-4" /> },
+          { id: "suggestions", label: "Suggestions", count: suggestions.length, icon: <Search className="h-4 w-4" /> },
+          { id: "evidence", label: "Evidence", icon: <FileText className="h-4 w-4" /> },
+        ]}
+      />
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="space-y-6">
-          <NotesSection notes={notes} />
-          <section>
-            <SectionHeader title="Case timeline" count={timeline.length} />
-            <TimelineList items={timeline.slice(0, 20)} />
-          </section>
-          <RelatedWork reviews={reviews} suggestions={suggestions} />
+          {activeTab === "overview" ? (
+            <>
+              <CaseSummaryPanel detail={detail} />
+              <RelatedEntitiesPanel reviews={reviews} suggestions={suggestions} reviewHref={reviewHref} suggestionHref={suggestionHref} />
+              <section>
+                <SectionHeader title="Recent timeline" count={timeline.length} />
+                <TimelineList items={timeline.slice(0, 5)} />
+              </section>
+            </>
+          ) : null}
+
+          {activeTab === "timeline" ? (
+            <section>
+              <SectionHeader title="Case timeline" count={timeline.length} />
+              <TimelineList items={timeline} />
+            </section>
+          ) : null}
+
+          {activeTab === "notes" ? <NotesSection notes={notes} /> : null}
+
+          {activeTab === "reviews" ? (
+            <section>
+              <SectionHeader title="Related reviews" count={reviews.length} />
+              <div className="grid gap-3 lg:grid-cols-2">
+                {reviews.length === 0 ? <EmptyState label="No related reviews." /> : null}
+                {reviews.map((review) => (
+                  <ReviewLinkCard key={review.review_id} review={review} to={reviewHref(review.review_id)} />
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {activeTab === "suggestions" ? (
+            <section>
+              <SectionHeader title="Related suggestions" count={suggestions.length} />
+              <div className="grid gap-3 lg:grid-cols-2">
+                {suggestions.length === 0 ? <EmptyState label="No related suggestions." /> : null}
+                {suggestions.map((suggestion) => (
+                  <SuggestionLinkCard key={suggestion.suggestion_id} suggestion={suggestion} to={suggestionHref(suggestion.suggestion_id)} />
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {activeTab === "evidence" ? (
+            <EvidenceSection payload={detail.case_payload ?? {}} sourceEventId={detail.source_event_id} title="Case evidence and source context" />
+          ) : null}
         </div>
 
         <CaseActionsPanel
@@ -122,57 +214,6 @@ function NotesSection({ notes }: { notes: CaseNote[] }) {
             <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-900">{note.note_text}</p>
           </article>
         ))}
-      </div>
-    </section>
-  );
-}
-
-function RelatedWork({ reviews, suggestions }: { reviews: ManualReview[]; suggestions: CaseSuggestion[] }) {
-  return (
-    <section>
-      <SectionHeader title="Related work" count={reviews.length + suggestions.length} />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="panel p-4">
-          <h3 className="text-sm font-semibold text-zinc-950">Reviews</h3>
-          <div className="mt-3 space-y-2">
-            {reviews.length === 0 ? <EmptyState label="No related reviews." /> : null}
-            {reviews.map((review) => (
-              <div key={review.review_id} className="rounded border border-zinc-200 p-3 text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">{review.review_type}</span>
-                  <StatusBadge value={review.status} tone={statusTone(review.status)} />
-                </div>
-                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-zinc-500">
-                  <span>{shortId(review.review_id)}</span>
-                  <span className="text-right">{formatDateTime(review.event_ts)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="panel p-4">
-          <h3 className="text-sm font-semibold text-zinc-950">Suggestions</h3>
-          <div className="mt-3 space-y-2">
-            {suggestions.length === 0 ? <EmptyState label="No related suggestions." /> : null}
-            {suggestions.map((suggestion) => (
-              <div key={suggestion.suggestion_id} className="rounded border border-zinc-200 p-3 text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">{suggestion.suggestion_type}</span>
-                  <StatusBadge value={suggestion.status} tone={statusTone(suggestion.status)} />
-                </div>
-                <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-zinc-500">
-                  <span>{shortId(suggestion.suggestion_id)}</span>
-                  <span className="text-right">{suggestion.evidence_count} evidence</span>
-                </div>
-                {suggestion.promoted_case_id ? (
-                  <Link className="mt-2 block text-xs font-medium text-teal-800 underline-offset-2 hover:underline" to={`/cases/${suggestion.promoted_case_id}`}>
-                    Promoted case {shortId(suggestion.promoted_case_id)}
-                  </Link>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </section>
   );

@@ -10,6 +10,7 @@ import { StatusBadge, statusTone } from "../StatusBadge";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { api } from "../../api/vigilanteApi";
 import type { CaseSuggestion } from "../../types/api";
+import { payloadString as payloadFieldString } from "../../utils/evidence";
 import { asErrorMessage, formatDateTime, shortId } from "../../utils/format";
 
 interface SuggestionDetailPanelProps {
@@ -62,6 +63,10 @@ export function SuggestionDetailPanel({ suggestion, returnTo, onChanged }: Sugge
     return <div className="rounded border border-dashed border-zinc-300 bg-white p-4 text-sm text-zinc-600">Select a case suggestion.</div>;
   }
   const currentSuggestion = suggestion;
+  const relatedCaseId =
+    suggestion.promoted_case_id ??
+    payloadFieldString(suggestion.payload, ["case_id", "linked_case_id", "promoted_case_id"]) ??
+    payloadFieldString(suggestion.resolution_payload, ["case_id", "linked_case_id", "promoted_case_id"]);
 
   async function run(label: string, action: () => Promise<unknown>) {
     if (busy) return;
@@ -129,13 +134,25 @@ export function SuggestionDetailPanel({ suggestion, returnTo, onChanged }: Sugge
         <KeyValue label="Organization" value={shortId(suggestion.organization_id)} />
         <KeyValue label="Site" value={shortId(suggestion.site_id)} />
         <KeyValue label="Event time" value={formatDateTime(suggestion.event_ts)} />
+        <KeyValue
+          label="Source event"
+          value={
+            suggestion.source_event_id ? (
+              <Link className="text-teal-800 underline-offset-2 hover:underline" to={`/timeline?source_event_id=${encodeURIComponent(suggestion.source_event_id)}&limit=50`}>
+                {shortId(suggestion.source_event_id)}
+              </Link>
+            ) : (
+              "—"
+            )
+          }
+        />
         <KeyValue label="Reason" value={suggestion.reason_summary} />
-        {suggestion.promoted_case_id ? (
+        {relatedCaseId ? (
           <KeyValue
-            label="Promoted case"
+            label="Related case"
             value={
-              <Link className="text-teal-800 underline-offset-2 hover:underline" to={`/cases/${suggestion.promoted_case_id}`} state={{ returnTo }}>
-                {shortId(suggestion.promoted_case_id)}
+              <Link className="text-teal-800 underline-offset-2 hover:underline" to={`/cases/${relatedCaseId}?returnTo=${encodeURIComponent(returnTo)}`}>
+                {shortId(relatedCaseId)}
               </Link>
             }
           />
@@ -143,7 +160,7 @@ export function SuggestionDetailPanel({ suggestion, returnTo, onChanged }: Sugge
       </div>
 
       <div className="mt-5 border-t border-zinc-200 pt-4">
-        <EvidenceSummary payload={suggestion.payload} />
+        <EvidenceSummary payload={suggestion.payload} sourceEventId={suggestion.source_event_id} />
       </div>
 
       <form className="mt-5 space-y-3 border-t border-zinc-200 pt-4" onSubmit={resolve}>

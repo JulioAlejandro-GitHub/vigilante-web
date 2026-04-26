@@ -71,7 +71,7 @@ npm run build
 - `/case-suggestions`
 - `/timeline`
 
-## Slice 4
+## Slice 5
 
 ### Navegación
 
@@ -79,6 +79,8 @@ npm run build
 - Drawer de navegación en móvil.
 - Indicador visual de ruta activa.
 - Selector simple de usuario actual simulado en el shell.
+- Links contextuales entre casos, reviews, suggestions, timeline y source events.
+- Retorno a resultados con filtros preservados mediante query params.
 
 ### Current user simulado
 
@@ -118,6 +120,14 @@ Las vistas principales sincronizan filtros con query params:
 - `/timeline`
 
 Esto conserva filtros, orden y paginación al volver desde un detalle o compartir una URL.
+
+El Slice 5 agrega preservación adicional de contexto:
+
+- detalle de caso con `tab` persistente en URL
+- manual reviews con panel seleccionable por `review_id`
+- case suggestions con panel seleccionable por `suggestion_id`
+- timeline con deep link por `source_event_id`
+- links a caso con `returnTo` para volver a la lista o cola filtrada
 
 ### Cases
 
@@ -175,7 +185,17 @@ Acciones disponibles con validación básica y refresh posterior:
 - reabrir caso
 - agregar nota
 
-El detalle incluye header de caso, bloque de ownership, breadcrumbs/back to results y panel de acciones con defaults del usuario actual.
+El detalle funciona como workspace forense con pestañas persistentes:
+
+- overview
+- timeline
+- notes
+- reviews
+- suggestions
+- evidence
+
+Incluye header de caso, bloque de ownership, breadcrumbs/back to results y panel de acciones con defaults del usuario actual.
+Desde el caso se puede navegar a reviews/suggestions relacionadas, source event y timeline sin perder el contexto de retorno.
 
 ### Manual reviews
 
@@ -185,10 +205,12 @@ Consume:
 - `GET /api/v1/manual-reviews/{review_id}`
 - `POST /api/v1/manual-reviews/{review_id}/resolve`
 
-Soporta filtros por URL, listado responsive, detalle lateral y campos condicionales para `identity_conflict`.
+Soporta filtros por URL, listado responsive, detalle lateral enlazable con `review_id` y campos condicionales para `identity_conflict`.
 El panel de resolución usa el usuario actual como default en `resolved_by`.
 El detalle muestra contexto operativo enriquecido:
 
+- source event con link a timeline
+- relación con caso si viene en payload/resolution payload
 - subject, track, camera
 - severity/priority
 - organization/site
@@ -207,12 +229,14 @@ Consume:
 - `POST /api/v1/case-suggestions/{suggestion_id}/resolve`
 - `POST /api/v1/case-suggestions/{suggestion_id}/promote`
 
-Incluye filtros por URL, detalle lateral, resolución y promoción con campos mínimos editables.
+Incluye filtros por URL, detalle lateral enlazable con `suggestion_id`, resolución y promoción con campos mínimos editables.
 El panel de acción usa el usuario actual como default en `resolved_by` y conserva retorno contextual al caso promovido.
 El detalle muestra contexto enriquecido:
 
 - suggestion type
 - evidence count
+- source event con link a timeline
+- caso relacionado si ya fue promovida
 - subject, track, camera
 - organization/site
 - suggested title/reason/priority/severity si viene en payload
@@ -223,7 +247,7 @@ La cola soporta selección múltiple y bulk accept/defer/reject secuencial.
 
 ### Evidencia técnica
 
-`EvidenceSummary` resume campos conocidos cuando están disponibles:
+`EvidenceSection` y `EvidenceSummary` presentan evidencia técnica en bloques legibles antes del JSON crudo:
 
 - `face_detection`
 - `semantic_descriptor`
@@ -231,21 +255,41 @@ La cola soporta selección múltiple y bulk accept/defer/reject secuencial.
 - `generation_trace`
 - `recurrent_subject_assessment`
 - `source_event`
+- `confidence`
+- `evidence_count`
+- `decision_reason`
 
 El JSON completo queda detrás de un bloque expandible para evitar ruido visual.
+También existe un placeholder explícito para futuro visor de media real, sin inventar endpoints ni datos.
 
 ### Timeline
 
 Consume `GET /api/v1/timeline` con filtros por:
 
 - `event_type`
+- `source_event_id`
 - `case_id`
 - `camera_id`
 - `subject_id`
+- `organization_id`
+- `site_id`
 - `limit`
 
-Los eventos muestran tipo, severidad, fecha, resumen y link al caso si existe `case_id`.
-Los links a caso preservan retorno contextual con la URL filtrada del timeline.
+Si `source_event_id` está presente, la vista consume `GET /api/v1/timeline/{source_event_id}`.
+Los eventos muestran tipo, severidad, fecha, resumen, metadata operativa, evidencia técnica expandible y links rápidos a caso, review o suggestion cuando esos ids están disponibles en el payload.
+Los links preservan retorno contextual con la URL filtrada del timeline.
+
+### Dashboard
+
+El dashboard queda orientado a investigación y operación diaria:
+
+- My cases
+- Open cases
+- Under review
+- Pending manual reviews
+- Pending case suggestions
+- accesos a unassigned y timeline forense
+- resumen del contexto mock de organization/site del usuario actual
 
 ## Pendientes
 
@@ -253,7 +297,9 @@ Los links a caso preservan retorno contextual con la URL filtrada del timeline.
 - RBAC real desde servidor
 - CORS/configuración productiva en API
 - usuario actual desde sesión
-- vistas dedicadas para media/evidencia
+- visor real de media/evidencia conectado a endpoints backend
+- rutas dedicadas de detalle si el backend expone ids navegables para reviews/suggestions
+- catálogos reales de organization/site
 - realtime con SSE/websocket
 - validación más específica por tipo de review/suggestion
 - edición avanzada de casos

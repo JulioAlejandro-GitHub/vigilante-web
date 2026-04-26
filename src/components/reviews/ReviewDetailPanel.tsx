@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { EvidenceSummary } from "../evidence/EvidenceSummary";
 import { Feedback } from "../Feedback";
@@ -9,14 +10,16 @@ import { StatusBadge, statusTone } from "../StatusBadge";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 import { api } from "../../api/vigilanteApi";
 import type { ManualReview } from "../../types/api";
+import { payloadString } from "../../utils/evidence";
 import { asErrorMessage, formatDateTime, shortId } from "../../utils/format";
 
 interface ReviewDetailPanelProps {
   review: ManualReview | null;
+  returnTo?: string;
   onChanged: () => void;
 }
 
-export function ReviewDetailPanel({ review, onChanged }: ReviewDetailPanelProps) {
+export function ReviewDetailPanel({ review, returnTo = "/manual-reviews", onChanged }: ReviewDetailPanelProps) {
   const { currentUser, can } = useCurrentUser();
   const [decision, setDecision] = useState<"approved" | "rejected" | "needs_more_evidence">("approved");
   const [reason, setReason] = useState("confirmed by analyst");
@@ -44,6 +47,9 @@ export function ReviewDetailPanel({ review, onChanged }: ReviewDetailPanelProps)
     return <div className="rounded border border-dashed border-zinc-300 bg-white p-4 text-sm text-zinc-600">Select a manual review.</div>;
   }
   const currentReview = review;
+  const relatedCaseId =
+    payloadString(review.payload, ["case_id", "linked_case_id", "promoted_case_id"]) ??
+    payloadString(review.resolution_payload, ["case_id", "linked_case_id", "promoted_case_id"]);
 
   async function resolve(event: FormEvent) {
     event.preventDefault();
@@ -97,11 +103,35 @@ export function ReviewDetailPanel({ review, onChanged }: ReviewDetailPanelProps)
         <KeyValue label="Organization" value={shortId(review.organization_id)} />
         <KeyValue label="Site" value={shortId(review.site_id)} />
         <KeyValue label="Event time" value={formatDateTime(review.event_ts)} />
+        <KeyValue
+          label="Source event"
+          value={
+            review.source_event_id ? (
+              <Link className="text-teal-800 underline-offset-2 hover:underline" to={`/timeline?source_event_id=${encodeURIComponent(review.source_event_id)}&limit=50`}>
+                {shortId(review.source_event_id)}
+              </Link>
+            ) : (
+              "—"
+            )
+          }
+        />
+        <KeyValue
+          label="Related case"
+          value={
+            relatedCaseId ? (
+              <Link className="text-teal-800 underline-offset-2 hover:underline" to={`/cases/${relatedCaseId}?returnTo=${encodeURIComponent(returnTo)}`}>
+                {shortId(relatedCaseId)}
+              </Link>
+            ) : (
+              "—"
+            )
+          }
+        />
         <KeyValue label="Reason" value={review.reason_summary} />
       </div>
 
       <div className="mt-5 border-t border-zinc-200 pt-4">
-        <EvidenceSummary payload={review.payload} />
+        <EvidenceSummary payload={review.payload} sourceEventId={review.source_event_id} />
       </div>
 
       <form className="mt-5 space-y-3 border-t border-zinc-200 pt-4" onSubmit={resolve}>

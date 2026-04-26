@@ -1,5 +1,6 @@
 import { RefreshCw } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 import { runSequentialBulkAction } from "../api/bulkActions";
 import { api } from "../api/vigilanteApi";
@@ -25,6 +26,7 @@ type ManualReviewQueryParams = {
   priority: string;
   camera_id: string;
   subject_id: string;
+  review_id: string;
   limit: number;
   offset: number;
 };
@@ -35,6 +37,7 @@ const MANUAL_REVIEW_DEFAULTS: ManualReviewQueryParams = {
   priority: "",
   camera_id: "",
   subject_id: "",
+  review_id: "",
   limit: 25,
   offset: 0,
 };
@@ -47,14 +50,25 @@ function activeReviewFilters(params: ManualReviewQueryParams) {
 }
 
 export function ManualReviewsPage() {
+  const location = useLocation();
   const { currentUser } = useCurrentUser();
   const { params, setParams, resetParams } = useQueryParams(MANUAL_REVIEW_DEFAULTS);
   const [draft, setDraft] = useState(params);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [bulkSuccess, setBulkSuccess] = useState<string | null>(null);
-  const filters = useMemo<QueueListParams>(() => params, [params]);
+  const filters = useMemo<QueueListParams>(
+    () => ({
+      status: params.status,
+      review_type: params.review_type,
+      priority: params.priority,
+      camera_id: params.camera_id,
+      subject_id: params.subject_id,
+      limit: params.limit,
+      offset: params.offset,
+    }),
+    [params],
+  );
   const { data, loading, error, refresh } = useAsyncData(() => api.listManualReviews(filters), [JSON.stringify(filters)]);
 
   useEffect(() => {
@@ -63,23 +77,21 @@ export function ManualReviewsPage() {
 
   function applyFilters(event: FormEvent) {
     event.preventDefault();
-    setSelectedId(null);
-    setParams({ ...draft, offset: 0 });
+    setParams({ ...draft, review_id: "", offset: 0 });
   }
 
   function clearFilters() {
-    setSelectedId(null);
     resetParams();
   }
 
   function setPage(nextOffset: number) {
-    setSelectedId(null);
     setParams({ offset: Math.max(0, nextOffset) });
   }
 
   const reviews = data ?? [];
   const selection = useBulkSelection(reviews.map((review) => review.review_id));
-  const currentReviewId = selectedId ?? reviews[0]?.review_id ?? null;
+  const returnTo = `${location.pathname}${location.search}`;
+  const currentReviewId = params.review_id || reviews[0]?.review_id || null;
   const {
     data: selectedReview,
     loading: selectedLoading,
@@ -241,7 +253,7 @@ export function ManualReviewsPage() {
                             className={`cursor-pointer align-top hover:bg-zinc-50 ${
                               currentReviewId === review.review_id ? "bg-teal-50/60" : ""
                             }`}
-                            onClick={() => setSelectedId(review.review_id)}
+                            onClick={() => setParams({ review_id: review.review_id })}
                           >
                             <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
                               <input
@@ -276,7 +288,7 @@ export function ManualReviewsPage() {
                         currentReviewId === review.review_id ? "border-teal-300 bg-teal-50/60" : ""
                       }`}
                       type="button"
-                      onClick={() => setSelectedId(review.review_id)}
+                      onClick={() => setParams({ review_id: review.review_id })}
                     >
                       <span className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-zinc-700" onClick={(event) => event.stopPropagation()}>
                         <input
@@ -299,7 +311,7 @@ export function ManualReviewsPage() {
         </div>
 
         <DataState loading={selectedLoading} error={selectedError} onRetry={refreshSelected}>
-          <ReviewDetailPanel review={selectedReview} onChanged={refreshAll} />
+          <ReviewDetailPanel review={selectedReview} returnTo={returnTo} onChanged={refreshAll} />
         </DataState>
       </div>
     </div>

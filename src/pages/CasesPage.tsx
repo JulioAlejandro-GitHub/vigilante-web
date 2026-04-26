@@ -358,8 +358,7 @@ export function CasesPage() {
                         <td className="px-4 py-3">
                           <Link
                             className="font-medium text-zinc-950 underline-offset-2 hover:underline"
-                            to={`/cases/${item.case_id}`}
-                            state={{ returnTo }}
+                            to={`/cases/${item.case_id}?returnTo=${encodeURIComponent(returnTo)}`}
                           >
                             {item.title}
                           </Link>
@@ -409,7 +408,7 @@ function CaseCard({ item, returnTo, selected, onToggle }: { item: CaseRecord; re
         <div className="flex min-w-0 gap-3">
           <input className="mt-1" type="checkbox" checked={selected} onChange={onToggle} aria-label={`Select ${item.title}`} />
           <div className="min-w-0">
-            <Link className="font-medium text-zinc-950 underline-offset-2 hover:underline" to={`/cases/${item.case_id}`} state={{ returnTo }}>
+            <Link className="font-medium text-zinc-950 underline-offset-2 hover:underline" to={`/cases/${item.case_id}?returnTo=${encodeURIComponent(returnTo)}`}>
               {item.title}
             </Link>
             <div className="mt-1 text-xs text-zinc-500">{shortId(item.case_id)}</div>

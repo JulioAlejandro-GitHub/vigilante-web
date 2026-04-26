@@ -25,6 +25,7 @@ type SuggestionQueryParams = {
   suggestion_type: string;
   camera_id: string;
   subject_id: string;
+  suggestion_id: string;
   limit: number;
   offset: number;
 };
@@ -34,6 +35,7 @@ const SUGGESTION_DEFAULTS: SuggestionQueryParams = {
   suggestion_type: "",
   camera_id: "",
   subject_id: "",
+  suggestion_id: "",
   limit: 25,
   offset: 0,
 };
@@ -50,11 +52,20 @@ export function CaseSuggestionsPage() {
   const { currentUser } = useCurrentUser();
   const { params, setParams, resetParams } = useQueryParams(SUGGESTION_DEFAULTS);
   const [draft, setDraft] = useState(params);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [bulkSuccess, setBulkSuccess] = useState<string | null>(null);
-  const filters = useMemo<QueueListParams>(() => params, [params]);
+  const filters = useMemo<QueueListParams>(
+    () => ({
+      status: params.status,
+      suggestion_type: params.suggestion_type,
+      camera_id: params.camera_id,
+      subject_id: params.subject_id,
+      limit: params.limit,
+      offset: params.offset,
+    }),
+    [params],
+  );
   const { data, loading, error, refresh } = useAsyncData(() => api.listCaseSuggestions(filters), [JSON.stringify(filters)]);
 
   useEffect(() => {
@@ -63,24 +74,21 @@ export function CaseSuggestionsPage() {
 
   function applyFilters(event: FormEvent) {
     event.preventDefault();
-    setSelectedId(null);
-    setParams({ ...draft, offset: 0 });
+    setParams({ ...draft, suggestion_id: "", offset: 0 });
   }
 
   function clearFilters() {
-    setSelectedId(null);
     resetParams();
   }
 
   function setPage(nextOffset: number) {
-    setSelectedId(null);
     setParams({ offset: Math.max(0, nextOffset) });
   }
 
   const suggestions = data ?? [];
   const selection = useBulkSelection(suggestions.map((suggestion) => suggestion.suggestion_id));
   const returnTo = `${location.pathname}${location.search}`;
-  const currentSuggestionId = selectedId ?? suggestions[0]?.suggestion_id ?? null;
+  const currentSuggestionId = params.suggestion_id || suggestions[0]?.suggestion_id || null;
   const {
     data: selectedSuggestion,
     loading: selectedLoading,
@@ -237,7 +245,7 @@ export function CaseSuggestionsPage() {
                             className={`cursor-pointer align-top hover:bg-zinc-50 ${
                               currentSuggestionId === suggestion.suggestion_id ? "bg-teal-50/60" : ""
                             }`}
-                            onClick={() => setSelectedId(suggestion.suggestion_id)}
+                            onClick={() => setParams({ suggestion_id: suggestion.suggestion_id })}
                           >
                             <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
                               <input
@@ -272,7 +280,7 @@ export function CaseSuggestionsPage() {
                         currentSuggestionId === suggestion.suggestion_id ? "border-teal-300 bg-teal-50/60" : ""
                       }`}
                       type="button"
-                      onClick={() => setSelectedId(suggestion.suggestion_id)}
+                      onClick={() => setParams({ suggestion_id: suggestion.suggestion_id })}
                     >
                       <span className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-zinc-700" onClick={(event) => event.stopPropagation()}>
                         <input
