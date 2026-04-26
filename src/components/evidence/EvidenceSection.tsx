@@ -11,9 +11,10 @@ interface EvidenceSectionProps {
   sourceEventId?: string | null;
   title?: string;
   compact?: boolean;
+  showMediaSlot?: boolean;
 }
 
-export function EvidenceSection({ payload, sourceEventId, title = "Evidence and technical context", compact = false }: EvidenceSectionProps) {
+export function EvidenceSection({ payload, sourceEventId, title = "Evidence and technical context", compact = false, showMediaSlot = true }: EvidenceSectionProps) {
   const sourceEvent = payloadValue(payload, "source_event");
   const faceDetection = payloadValue(payload, "face_detection");
   const semanticDescriptor = payloadValue(payload, "semantic_descriptor");
@@ -27,9 +28,11 @@ export function EvidenceSection({ payload, sourceEventId, title = "Evidence and 
       <section className="rounded border border-dashed border-zinc-300 bg-white p-4">
         <h3 className="text-sm font-semibold text-zinc-950">{title}</h3>
         <p className="mt-2 text-sm text-zinc-600">No technical evidence payload is available for this item yet.</p>
-        <div className="mt-3">
-          <MediaPlaceholderPanel sourceEventId={sourceEventId} compact={compact} />
-        </div>
+        {showMediaSlot ? (
+          <div className="mt-3">
+            <MediaPlaceholderPanel sourceEventId={sourceEventId} compact={compact} />
+          </div>
+        ) : null}
       </section>
     );
   }
@@ -72,7 +75,7 @@ export function EvidenceSection({ payload, sourceEventId, title = "Evidence and 
       ) : null}
 
       <SourceEventSummary sourceEvent={sourceEvent} sourceEventId={sourceEventId} />
-      <MediaPlaceholderPanel sourceEventId={sourceEventId} compact={compact} />
+      {showMediaSlot ? <MediaPlaceholderPanel sourceEventId={sourceEventId} compact={compact} /> : null}
       <TechnicalPayloadPanel payload={payload} />
     </section>
   );

@@ -1,6 +1,6 @@
 import { RefreshCw } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import { runSequentialBulkAction } from "../api/bulkActions";
 import { api } from "../api/vigilanteApi";
@@ -288,6 +288,13 @@ export function ManualReviewsPage() {
                             <td className="px-4 py-3">
                               <div className="font-medium">{review.review_type}</div>
                               <div className="mt-1 text-xs text-zinc-500">{shortId(review.review_id)}</div>
+                              <Link
+                                className="mt-2 inline-flex text-xs font-medium text-teal-800 underline-offset-2 hover:underline"
+                                to={`/manual-reviews/${review.review_id}?returnTo=${encodeURIComponent(returnTo)}`}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                Open detail
+                              </Link>
                             </td>
                             <td className="px-4 py-3">
                               <StatusBadge value={review.status} tone={statusTone(review.status)} />
@@ -307,12 +314,11 @@ export function ManualReviewsPage() {
 
                 <div className="space-y-3 md:hidden">
                   {visibleReviews.map((review) => (
-                    <button
+                    <article
                       key={review.review_id}
                       className={`panel w-full p-4 text-left hover:border-teal-200 hover:bg-teal-50/30 ${
                         currentReviewId === review.review_id ? "border-teal-300 bg-teal-50/60" : ""
                       }`}
-                      type="button"
                       onClick={() => setParams({ review_id: review.review_id, detail: "open" })}
                     >
                       <span className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-zinc-700" onClick={(event) => event.stopPropagation()}>
@@ -325,7 +331,14 @@ export function ManualReviewsPage() {
                         Select
                       </span>
                       <ReviewSummary review={review} />
-                    </button>
+                      <Link
+                        className="mt-3 inline-flex text-sm font-medium text-teal-800 underline-offset-2 hover:underline"
+                        to={`/manual-reviews/${review.review_id}?returnTo=${encodeURIComponent(returnTo)}`}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        Open detail
+                      </Link>
+                    </article>
                   ))}
                 </div>
 

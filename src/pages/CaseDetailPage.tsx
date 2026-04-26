@@ -9,7 +9,7 @@ import { CaseTabId, CaseTabs } from "../components/cases/CaseTabs";
 import { OwnershipHistoryPreview } from "../components/cases/OwnershipHistoryPreview";
 import { RelatedEntitiesPanel } from "../components/cases/RelatedEntitiesPanel";
 import { DataState, EmptyState } from "../components/DataState";
-import { EvidenceSection } from "../components/evidence/EvidenceSection";
+import { EvidenceWorkspace } from "../components/evidence/EvidenceWorkspace";
 import { ContextualBackLink } from "../components/navigation/ContextualBackLink";
 import { Breadcrumbs } from "../components/navigation/Breadcrumbs";
 import { PageHeader } from "../components/PageHeader";
@@ -176,7 +176,7 @@ function CaseDetailContent({
           ) : null}
 
           {activeTab === "evidence" ? (
-            <EvidenceSection payload={detail.case_payload ?? {}} sourceEventId={detail.source_event_id} title="Case evidence and source context" />
+            <EvidenceWorkspace payload={detail.case_payload ?? {}} sourceEventId={detail.source_event_id} title="Case evidence and source context" />
           ) : null}
         </div>
 

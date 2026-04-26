@@ -38,9 +38,15 @@ export function useNavigationContext(fallback = "/dashboard") {
       returnTo,
       withReturnTo: (to: string, explicitReturnTo = currentPath) => appendQueryParam(to, "returnTo", explicitReturnTo),
       caseHref: (caseId: string, explicitReturnTo = currentPath) => appendQueryParam(`/cases/${caseId}`, "returnTo", explicitReturnTo),
-      reviewHref: (reviewId: string) => appendQueryParam("/manual-reviews", "review_id", reviewId),
-      suggestionHref: (suggestionId: string) => appendQueryParam("/case-suggestions", "suggestion_id", suggestionId),
-      timelineEventHref: (sourceEventId: string) => appendQueryParam("/timeline", "source_event_id", sourceEventId),
+      reviewHref: (reviewId: string, explicitReturnTo = currentPath) =>
+        appendQueryParam(`/manual-reviews/${reviewId}`, "returnTo", explicitReturnTo),
+      reviewQueueHref: (reviewId: string) => appendQueryParam("/manual-reviews", "review_id", reviewId),
+      suggestionHref: (suggestionId: string, explicitReturnTo = currentPath) =>
+        appendQueryParam(`/case-suggestions/${suggestionId}`, "returnTo", explicitReturnTo),
+      suggestionQueueHref: (suggestionId: string) => appendQueryParam("/case-suggestions", "suggestion_id", suggestionId),
+      timelineEventHref: (sourceEventId: string, explicitReturnTo = currentPath) =>
+        appendQueryParam(`/timeline/${sourceEventId}`, "returnTo", explicitReturnTo),
+      timelineQueueHref: (sourceEventId: string) => appendQueryParam("/timeline", "source_event_id", sourceEventId),
     }),
     [currentPath, returnTo],
   );

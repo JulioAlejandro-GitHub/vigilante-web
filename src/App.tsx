@@ -2,11 +2,14 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import { Layout } from "./components/Layout";
 import { CaseDetailPage } from "./pages/CaseDetailPage";
+import { CaseSuggestionDetailPage } from "./pages/CaseSuggestionDetailPage";
 import { CaseSuggestionsPage } from "./pages/CaseSuggestionsPage";
 import { CasesPage } from "./pages/CasesPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { ManualReviewDetailPage } from "./pages/ManualReviewDetailPage";
 import { ManualReviewsPage } from "./pages/ManualReviewsPage";
 import { MyWorkPage } from "./pages/MyWorkPage";
+import { TimelineEventDetailPage } from "./pages/TimelineEventDetailPage";
 import { TimelinePage } from "./pages/TimelinePage";
 
 export default function App() {
@@ -19,8 +22,11 @@ export default function App() {
         <Route path="/cases" element={<CasesPage />} />
         <Route path="/cases/:caseId" element={<CaseDetailPage />} />
         <Route path="/manual-reviews" element={<ManualReviewsPage />} />
+        <Route path="/manual-reviews/:reviewId" element={<ManualReviewDetailPage />} />
         <Route path="/case-suggestions" element={<CaseSuggestionsPage />} />
+        <Route path="/case-suggestions/:suggestionId" element={<CaseSuggestionDetailPage />} />
         <Route path="/timeline" element={<TimelinePage />} />
+        <Route path="/timeline/:sourceEventId" element={<TimelineEventDetailPage />} />
       </Route>
     </Routes>
   );

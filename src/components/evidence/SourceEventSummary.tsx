@@ -24,8 +24,8 @@ export function SourceEventSummary({ sourceEvent, sourceEventId }: SourceEventSu
           <p className="mt-1 text-xs text-zinc-500">Origin signal that fed this operational artifact.</p>
         </div>
         {eventId ? (
-          <Link className="btn" to={`/timeline?source_event_id=${encodeURIComponent(eventId)}&limit=50`}>
-            Open in timeline
+          <Link className="btn" to={`/timeline/${eventId}`}>
+            Open event detail
           </Link>
         ) : null}
       </div>

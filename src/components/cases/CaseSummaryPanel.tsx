@@ -43,7 +43,7 @@ export function CaseSummaryPanel({ detail }: CaseSummaryPanelProps) {
           label="Source event"
           value={
             detail.source_event_id ? (
-              <Link className="text-teal-800 underline-offset-2 hover:underline" to={`/timeline?source_event_id=${encodeURIComponent(detail.source_event_id)}&limit=50`}>
+              <Link className="text-teal-800 underline-offset-2 hover:underline" to={`/timeline/${detail.source_event_id}`}>
                 {shortId(detail.source_event_id)}
               </Link>
             ) : (
@@ -55,7 +55,7 @@ export function CaseSummaryPanel({ detail }: CaseSummaryPanelProps) {
           label="Source suggestion"
           value={
             detail.source_suggestion_id ? (
-              <Link className="text-teal-800 underline-offset-2 hover:underline" to={`/case-suggestions?suggestion_id=${encodeURIComponent(detail.source_suggestion_id)}`}>
+              <Link className="text-teal-800 underline-offset-2 hover:underline" to={`/case-suggestions/${detail.source_suggestion_id}`}>
                 {shortId(detail.source_suggestion_id)}
               </Link>
             ) : (

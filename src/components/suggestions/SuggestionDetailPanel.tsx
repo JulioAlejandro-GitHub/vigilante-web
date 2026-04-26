@@ -153,7 +153,7 @@ export function SuggestionDetailPanel({ suggestion, returnTo, onChanged, onClose
           label="Source event"
           value={
             suggestion.source_event_id ? (
-              <Link className="text-teal-800 underline-offset-2 hover:underline" to={`/timeline?source_event_id=${encodeURIComponent(suggestion.source_event_id)}&limit=50`}>
+              <Link className="text-teal-800 underline-offset-2 hover:underline" to={`/timeline/${suggestion.source_event_id}?returnTo=${encodeURIComponent(returnTo)}`}>
                 {shortId(suggestion.source_event_id)}
               </Link>
             ) : (

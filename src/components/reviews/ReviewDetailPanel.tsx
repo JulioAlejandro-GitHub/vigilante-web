@@ -120,7 +120,7 @@ export function ReviewDetailPanel({ review, returnTo = "/manual-reviews", onChan
           label="Source event"
           value={
             review.source_event_id ? (
-              <Link className="text-teal-800 underline-offset-2 hover:underline" to={`/timeline?source_event_id=${encodeURIComponent(review.source_event_id)}&limit=50`}>
+              <Link className="text-teal-800 underline-offset-2 hover:underline" to={`/timeline/${review.source_event_id}?returnTo=${encodeURIComponent(returnTo)}`}>
                 {shortId(review.source_event_id)}
               </Link>
             ) : (

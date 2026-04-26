@@ -44,7 +44,7 @@ export function TimelineEventCard({ item }: TimelineEventCardProps) {
             {reviewId ? (
               <Link
                 className="rounded bg-indigo-50 px-2 py-1 font-medium text-indigo-800 hover:bg-indigo-100"
-                to={`/manual-reviews?review_id=${encodeURIComponent(reviewId)}&returnTo=${encodeURIComponent(returnTo)}`}
+                to={`/manual-reviews/${reviewId}?returnTo=${encodeURIComponent(returnTo)}`}
               >
                 Review {shortId(reviewId)}
               </Link>
@@ -52,12 +52,12 @@ export function TimelineEventCard({ item }: TimelineEventCardProps) {
             {suggestionId ? (
               <Link
                 className="rounded bg-amber-50 px-2 py-1 font-medium text-amber-800 hover:bg-amber-100"
-                to={`/case-suggestions?suggestion_id=${encodeURIComponent(suggestionId)}&returnTo=${encodeURIComponent(returnTo)}`}
+                to={`/case-suggestions/${suggestionId}?returnTo=${encodeURIComponent(returnTo)}`}
               >
                 Suggestion {shortId(suggestionId)}
               </Link>
             ) : null}
-            <Link className="rounded bg-zinc-100 px-2 py-1 font-medium text-zinc-700 hover:bg-zinc-200" to={`/timeline?source_event_id=${encodeURIComponent(item.source_event_id)}&limit=50`}>
+            <Link className="rounded bg-zinc-100 px-2 py-1 font-medium text-zinc-700 hover:bg-zinc-200" to={`/timeline/${item.source_event_id}?returnTo=${encodeURIComponent(returnTo)}`}>
               Source {shortId(item.source_event_id)}
             </Link>
           </div>

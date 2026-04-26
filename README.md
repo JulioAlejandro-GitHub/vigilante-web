@@ -69,10 +69,13 @@ npm run build
 - `/cases`
 - `/cases/:caseId`
 - `/manual-reviews`
+- `/manual-reviews/:reviewId`
 - `/case-suggestions`
+- `/case-suggestions/:suggestionId`
 - `/timeline`
+- `/timeline/:sourceEventId`
 
-## Slice 6
+## Slice 7
 
 ### Navegación
 
@@ -83,6 +86,7 @@ npm run build
 - Links contextuales entre casos, reviews, suggestions, timeline y source events.
 - Retorno a resultados con filtros preservados mediante query params.
 - Entrada dedicada a `/my-work`.
+- Rutas dedicadas para review, suggestion y timeline event.
 
 ### Sesión mock
 
@@ -126,6 +130,7 @@ Esta capa prepara la app para auth/RBAC real sin introducir tokens ni sesiones r
 - casos `in_review` asignados al usuario actual
 - manual reviews pendientes relevantes al contexto org/site actual
 - case suggestions pendientes relevantes al contexto org/site actual
+- quick filters por all/cases/queues
 - quick actions a cases, reviews, suggestions y bulk assignment queue
 - resumen visible de sesión mock y permisos
 
@@ -138,6 +143,7 @@ Las vistas principales sincronizan filtros con query params:
 - `/case-suggestions`
 - `/timeline`
 - `/my-work` preserva retorno contextual hacia listas y detalles
+- `/manual-reviews/:reviewId`, `/case-suggestions/:suggestionId` y `/timeline/:sourceEventId` usan `returnTo`
 
 Esto conserva filtros, orden y paginación al volver desde un detalle o compartir una URL.
 
@@ -148,6 +154,13 @@ El Slice 5 agrega preservación adicional de contexto:
 - case suggestions con panel seleccionable por `suggestion_id`
 - timeline con deep link por `source_event_id`
 - links a caso con `returnTo` para volver a la lista o cola filtrada
+
+El Slice 7 consolida deep links dedicados:
+
+- `reviewHref()` apunta a `/manual-reviews/:reviewId`
+- `suggestionHref()` apunta a `/case-suggestions/:suggestionId`
+- `timelineEventHref()` apunta a `/timeline/:sourceEventId`
+- los helpers legacy de cola siguen disponibles para abrir paneles laterales con query params
 
 ### Cases
 
@@ -220,12 +233,14 @@ El detalle funciona como workspace forense con pestañas persistentes:
 
 Incluye header de caso, bloque de ownership, breadcrumbs/back to results y panel de acciones con defaults del usuario actual.
 Desde el caso se puede navegar a reviews/suggestions relacionadas, source event y timeline sin perder el contexto de retorno.
-El Slice 6 agrega:
+El Slice 6/7 agrega:
 
 - owner actual más visible
 - `AssignmentActions` con assign to me, unassign y reassign
 - `OwnershipHistoryPreview` inferido desde eventos `case_assigned`, `case_reassigned` y `case_unassigned`
 - chips de organization/site en header y overview
+- `EvidenceWorkspace` para la pestaña evidence
+- links de reviews/suggestions/timeline hacia rutas dedicadas
 - panel de evidencia preparado para futuro visor multimedia
 
 ### Manual reviews
@@ -239,6 +254,7 @@ Consume:
 Soporta filtros por URL, listado responsive, detalle lateral enlazable con `review_id` y campos condicionales para `identity_conflict`.
 El panel de resolución usa el usuario actual como default en `resolved_by`.
 El Slice 6 agrega quick filters, filtro cliente-side por contexto org/site, columna/chips de org/site, cierre explícito del detalle lateral y bulk approve con permiso visual.
+El Slice 7 agrega `/manual-reviews/:reviewId` como detalle dedicado con breadcrumbs, back contextual, `EntityHeader`, `InvestigationContextPanel`, `RelatedLinksPanel`, `EvidenceWorkspace` y acción de resolve.
 El detalle muestra contexto operativo enriquecido:
 
 - source event con link a timeline
@@ -264,6 +280,7 @@ Consume:
 Incluye filtros por URL, detalle lateral enlazable con `suggestion_id`, resolución y promoción con campos mínimos editables.
 El panel de acción usa el usuario actual como default en `resolved_by` y conserva retorno contextual al caso promovido.
 El Slice 6 agrega quick filters, filtro cliente-side por contexto org/site, columna/chips de org/site, cierre explícito del detalle lateral y bulk accept/defer/reject con permiso visual.
+El Slice 7 agrega `/case-suggestions/:suggestionId` como detalle dedicado con breadcrumbs, back contextual, `EntityHeader`, `InvestigationContextPanel`, `RelatedLinksPanel`, `EvidenceWorkspace`, resolve y promote.
 El detalle muestra contexto enriquecido:
 
 - suggestion type
@@ -280,7 +297,7 @@ La cola soporta selección múltiple y bulk accept/defer/reject secuencial.
 
 ### Evidencia técnica
 
-`EvidenceSection` y `EvidenceSummary` presentan evidencia técnica en bloques legibles antes del JSON crudo:
+`EvidenceWorkspace`, `EvidenceSection` y `EvidenceSummary` presentan evidencia técnica en bloques legibles antes del JSON crudo:
 
 - `face_detection`
 - `semantic_descriptor`
@@ -294,7 +311,15 @@ La cola soporta selección múltiple y bulk accept/defer/reject secuencial.
 
 El JSON completo queda detrás de un bloque expandible para evitar ruido visual.
 También existe un placeholder explícito para futuro visor de media real, sin inventar endpoints ni datos.
-El Slice 6 extrae ese slot en `MediaPlaceholderPanel`, usado en detalle de caso, reviews, suggestions y timeline event detail.
+El Slice 6 extrae ese slot en `MediaPlaceholderPanel`.
+El Slice 7 agrega `MediaReadyPanel` y un patrón reusable:
+
+- resumen rápido arriba
+- evidencia técnica estructurada
+- placeholder media-ready lateral
+- payload completo colapsable
+
+Ese patrón se usa en detalle de caso, review, suggestion y timeline event.
 
 ### Timeline
 
@@ -309,7 +334,7 @@ Consume `GET /api/v1/timeline` con filtros por:
 - `site_id`
 - `limit`
 
-Si `source_event_id` está presente, la vista consume `GET /api/v1/timeline/{source_event_id}`.
+Si `source_event_id` está presente, la vista puede consumir `GET /api/v1/timeline/{source_event_id}` desde el filtro legacy.
 Los eventos muestran tipo, severidad, fecha, resumen, metadata operativa, evidencia técnica expandible y links rápidos a caso, review o suggestion cuando esos ids están disponibles en el payload.
 Los links preservan retorno contextual con la URL filtrada del timeline.
 El Slice 6 agrega:
@@ -319,6 +344,14 @@ El Slice 6 agrega:
 - badges de ownership para eventos de asignación
 - org/site visible con chips
 - mayor densidad visual por evento
+
+El Slice 7 agrega `/timeline/:sourceEventId` como detalle dedicado con:
+
+- `EventMetadataPanel`
+- `SourceTracePanel`
+- `EvidenceWorkspace`
+- links a case/review/suggestion/source event
+- breadcrumbs y back contextual
 
 ### Dashboard
 
@@ -346,6 +379,11 @@ La suite de Vitest cubre flujos críticos:
 - lista principal de casos
 - acción operativa de assignment
 - detalle de caso con evidencia y slot multimedia futuro
+- rutas dedicadas de review
+- rutas dedicadas de suggestion
+- detalle dedicado de timeline event
+- acción crítica de resolve desde detalle
+- `EvidenceWorkspace`
 
 Validado con:
 
@@ -362,7 +400,6 @@ npm run dev
 - CORS/configuración productiva en API
 - usuario real desde auth backend
 - visor real de media/evidencia conectado a endpoints backend
-- rutas dedicadas de detalle si el backend expone ids navegables para reviews/suggestions
 - catálogos reales de organization/site
 - realtime con SSE/websocket
 - validación más específica por tipo de review/suggestion

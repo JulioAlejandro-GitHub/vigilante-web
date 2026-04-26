@@ -9,10 +9,12 @@ import { DataState, EmptyState } from "../components/DataState";
 import { WorkQueueCard } from "../components/dashboard/WorkQueueCard";
 import { PageHeader } from "../components/PageHeader";
 import { RoleAwareAction } from "../components/permissions/RoleAwareAction";
+import { QueueQuickFilters } from "../components/queues/QueueQuickFilters";
 import { SessionSummaryCard } from "../components/session/SessionSummaryCard";
 import { StatusBadge, statusTone } from "../components/StatusBadge";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { useQueryParams } from "../hooks/useQueryParams";
 import type { CaseRecord, CaseSuggestion, DashboardSummary, ManualReview } from "../types/api";
 import { formatDateTime, shortId } from "../utils/format";
 import { matchesSessionContext } from "../utils/ownership";
@@ -25,9 +27,18 @@ interface MyWorkBundle {
   pendingSuggestions: CaseSuggestion[];
 }
 
+type MyWorkQueryParams = {
+  focus: "all" | "cases" | "queues";
+};
+
+const MY_WORK_DEFAULTS: MyWorkQueryParams = {
+  focus: "all",
+};
+
 export function MyWorkPage() {
   const location = useLocation();
   const { currentUser } = useCurrentUser();
+  const { params, setParams } = useQueryParams(MY_WORK_DEFAULTS);
   const { data, loading, error, refresh } = useAsyncData<MyWorkBundle>(
     async () => {
       const [summary, assignedCases, underReviewCases, pendingReviews, pendingSuggestions] = await Promise.all([
@@ -69,13 +80,23 @@ export function MyWorkPage() {
       />
 
       <DataState loading={loading} error={error} onRetry={refresh}>
-        {data ? <MyWorkContent bundle={data} returnTo={returnTo} /> : null}
+        {data ? <MyWorkContent bundle={data} returnTo={returnTo} focus={params.focus} onFocusChange={(focus) => setParams({ focus })} /> : null}
       </DataState>
     </div>
   );
 }
 
-function MyWorkContent({ bundle, returnTo }: { bundle: MyWorkBundle; returnTo: string }) {
+function MyWorkContent({
+  bundle,
+  returnTo,
+  focus,
+  onFocusChange,
+}: {
+  bundle: MyWorkBundle;
+  returnTo: string;
+  focus: MyWorkQueryParams["focus"];
+  onFocusChange: (focus: MyWorkQueryParams["focus"]) => void;
+}) {
   const { currentUser } = useCurrentUser();
   const hasWork =
     bundle.assignedCases.length > 0 ||
@@ -126,37 +147,53 @@ function MyWorkContent({ bundle, returnTo }: { bundle: MyWorkBundle; returnTo: s
         <WorkQueueCard label="Pending suggestions" value={bundle.pendingSuggestions.length} to="/case-suggestions?status=pending&limit=25&offset=0" icon={Search} tone="attention" />
       </div>
 
+      <QueueQuickFilters
+        filters={[
+          { label: "All work", active: focus === "all", onClick: () => onFocusChange("all") },
+          { label: "Cases", active: focus === "cases", onClick: () => onFocusChange("cases") },
+          { label: "Queues", active: focus === "queues", onClick: () => onFocusChange("queues") },
+        ]}
+      />
+
       {!hasWork ? <EmptyState label="No personal work items match the current session context." /> : null}
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <WorkSection title="Assigned cases" count={bundle.assignedCases.length}>
-          {bundle.assignedCases.slice(0, 8).map((item) => (
-            <CaseWorkItem key={item.case_id} item={item} to={`/cases/${item.case_id}?returnTo=${encodeURIComponent(returnTo)}`} />
-          ))}
-        </WorkSection>
-        <WorkSection title="Under review assigned to me" count={bundle.underReviewCases.length}>
-          {bundle.underReviewCases.slice(0, 8).map((item) => (
-            <CaseWorkItem key={item.case_id} item={item} to={`/cases/${item.case_id}?returnTo=${encodeURIComponent(returnTo)}`} />
-          ))}
-        </WorkSection>
-        <WorkSection title="Pending manual reviews" count={bundle.pendingReviews.length}>
-          {bundle.pendingReviews.slice(0, 8).map((item) => (
-            <ReviewWorkItem
-              key={item.review_id}
-              item={item}
-              to={`/manual-reviews?review_id=${encodeURIComponent(item.review_id)}&returnTo=${encodeURIComponent(returnTo)}`}
-            />
-          ))}
-        </WorkSection>
-        <WorkSection title="Pending case suggestions" count={bundle.pendingSuggestions.length}>
-          {bundle.pendingSuggestions.slice(0, 8).map((item) => (
-            <SuggestionWorkItem
-              key={item.suggestion_id}
-              item={item}
-              to={`/case-suggestions?suggestion_id=${encodeURIComponent(item.suggestion_id)}&returnTo=${encodeURIComponent(returnTo)}`}
-            />
-          ))}
-        </WorkSection>
+        {focus !== "queues" ? (
+          <>
+            <WorkSection title="Assigned cases" count={bundle.assignedCases.length}>
+              {bundle.assignedCases.slice(0, 8).map((item) => (
+                <CaseWorkItem key={item.case_id} item={item} to={`/cases/${item.case_id}?returnTo=${encodeURIComponent(returnTo)}`} />
+              ))}
+            </WorkSection>
+            <WorkSection title="Under review assigned to me" count={bundle.underReviewCases.length}>
+              {bundle.underReviewCases.slice(0, 8).map((item) => (
+                <CaseWorkItem key={item.case_id} item={item} to={`/cases/${item.case_id}?returnTo=${encodeURIComponent(returnTo)}`} />
+              ))}
+            </WorkSection>
+          </>
+        ) : null}
+        {focus !== "cases" ? (
+          <>
+            <WorkSection title="Pending manual reviews" count={bundle.pendingReviews.length}>
+              {bundle.pendingReviews.slice(0, 8).map((item) => (
+                <ReviewWorkItem
+                  key={item.review_id}
+                  item={item}
+                  to={`/manual-reviews/${item.review_id}?returnTo=${encodeURIComponent(returnTo)}`}
+                />
+              ))}
+            </WorkSection>
+            <WorkSection title="Pending case suggestions" count={bundle.pendingSuggestions.length}>
+              {bundle.pendingSuggestions.slice(0, 8).map((item) => (
+                <SuggestionWorkItem
+                  key={item.suggestion_id}
+                  item={item}
+                  to={`/case-suggestions/${item.suggestion_id}?returnTo=${encodeURIComponent(returnTo)}`}
+                />
+              ))}
+            </WorkSection>
+          </>
+        ) : null}
       </div>
     </div>
   );
