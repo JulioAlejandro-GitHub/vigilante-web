@@ -5,7 +5,7 @@ import { OwnerBadge } from "./OwnerBadge";
 import { renderWithAppProviders } from "../../test/render";
 
 describe("OwnerBadge", () => {
-  it("labels ownership relative to the current mock user", () => {
+  it("labels ownership relative to the authenticated user", () => {
     renderWithAppProviders(
       <div>
         <OwnerBadge assignedTo="julio" />

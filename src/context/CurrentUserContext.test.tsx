@@ -1,8 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { CurrentUserProvider, useCurrentUser } from "./CurrentUserContext";
 import { CurrentUserMenu } from "../components/session/CurrentUserMenu";
+import { authUserFixture } from "../test/auth";
 
 function SessionProbe() {
   const { currentUser, can } = useCurrentUser();
@@ -23,27 +24,34 @@ describe("CurrentUserContext", () => {
     window.localStorage.clear();
   });
 
-  it("separates identity, role and org/site context and persists the mock session", () => {
+  it("exposes the authenticated user, role permissions and backend scope", () => {
     render(
-      <CurrentUserProvider>
+      <CurrentUserProvider
+        initialToken="test-token"
+        initialUser={authUserFixture({
+          username: "maria",
+          email: "maria@example.test",
+          name: "Maria Supervisor",
+          display_name: "Maria Supervisor",
+          role: "supervisor",
+          roles: ["supervisor"],
+          organization_id: "org-1",
+          site_id: "site-1",
+          organization_ids: ["org-1", "org-2"],
+          site_ids: ["site-1", "site-2"],
+        })}
+        skipBootstrap
+      >
         <CurrentUserMenu compact />
         <SessionProbe />
       </CurrentUserProvider>,
     );
 
-    fireEvent.change(screen.getByLabelText("Identity"), { target: { value: "ana" } });
-    fireEvent.change(screen.getByLabelText("Role"), { target: { value: "supervisor" } });
-    fireEvent.change(screen.getByPlaceholderText("organization_id"), { target: { value: "org-1" } });
-    fireEvent.change(screen.getByPlaceholderText("site_id"), { target: { value: "site-1" } });
-
-    expect(screen.getByTestId("identity")).toHaveTextContent("ana");
+    expect(screen.getByTestId("identity")).toHaveTextContent("maria");
     expect(screen.getByTestId("role")).toHaveTextContent("supervisor");
     expect(screen.getByTestId("context")).toHaveTextContent("org-1 / site-1");
     expect(screen.getByTestId("bulk")).toHaveTextContent("allowed");
-
-    const stored = JSON.parse(window.localStorage.getItem("vigilante.session.v1") ?? "{}");
-    expect(stored.identity.username).toBe("ana");
-    expect(stored.role).toBe("supervisor");
-    expect(stored.context).toEqual({ organization_id: "org-1", site_id: "site-1" });
+    expect(screen.getByText("Maria Supervisor")).toBeInTheDocument();
+    expect(screen.getByText("2 scopes · 2 scopes")).toBeInTheDocument();
   });
 });

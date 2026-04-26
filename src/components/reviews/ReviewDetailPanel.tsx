@@ -26,7 +26,6 @@ export function ReviewDetailPanel({ review, returnTo = "/manual-reviews", onChan
   const { currentUser, can } = useCurrentUser();
   const [decision, setDecision] = useState<"approved" | "rejected" | "needs_more_evidence">("approved");
   const [reason, setReason] = useState("confirmed by analyst");
-  const [actor, setActor] = useState(currentUser.username);
   const [identityResolution, setIdentityResolution] = useState<"confirm_identity" | "discard_candidate" | "mark_unresolved" | "escalate">(
     "confirm_identity",
   );
@@ -42,10 +41,6 @@ export function ReviewDetailPanel({ review, returnTo = "/manual-reviews", onChan
     setSuccess(null);
   }, [review?.review_id]);
 
-  useEffect(() => {
-    setActor(currentUser.username);
-  }, [currentUser.username]);
-
   if (!review) {
     return <div className="rounded border border-dashed border-zinc-300 bg-white p-4 text-sm text-zinc-600">Select a manual review.</div>;
   }
@@ -59,9 +54,8 @@ export function ReviewDetailPanel({ review, returnTo = "/manual-reviews", onChan
     if (busy || !can("queue:resolve", { organization_id: currentReview.organization_id, site_id: currentReview.site_id })) return;
 
     const trimmedReason = reason.trim();
-    const trimmedActor = actor.trim();
-    if (!trimmedReason || !trimmedActor) {
-      setFormError("Decision reason and resolved by are required.");
+    if (!trimmedReason) {
+      setFormError("Decision reason is required.");
       return;
     }
 
@@ -73,7 +67,7 @@ export function ReviewDetailPanel({ review, returnTo = "/manual-reviews", onChan
       await api.resolveManualReview(currentReview.review_id, {
         decision,
         decision_reason: trimmedReason,
-        resolved_by: trimmedActor,
+        resolved_by: currentUser.username,
         ...(currentReview.review_type === "identity_conflict"
           ? {
               identity_resolution: identityResolution,
@@ -150,7 +144,7 @@ export function ReviewDetailPanel({ review, returnTo = "/manual-reviews", onChan
       <form className="mt-5 space-y-3 border-t border-zinc-200 pt-4" onSubmit={resolve}>
         <Feedback error={formError ?? error} success={success} />
         {!can("queue:resolve", { organization_id: review.organization_id, site_id: review.site_id }) ? (
-          <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">This review cannot be resolved in the current mock role/context.</div>
+          <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">This review cannot be resolved with the authenticated role or scope.</div>
         ) : null}
         <FormField label="Decision">
           <select className="field" value={decision} onChange={(event) => setDecision(event.target.value as typeof decision)}>
@@ -161,9 +155,6 @@ export function ReviewDetailPanel({ review, returnTo = "/manual-reviews", onChan
         </FormField>
         <FormField label="Decision reason">
           <input className="field" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="confirmed by analyst" />
-        </FormField>
-        <FormField label="Resolved by">
-          <input className="field" value={actor} onChange={(event) => setActor(event.target.value)} placeholder={currentUser.username} />
         </FormField>
         {review.review_type === "identity_conflict" ? (
           <>
@@ -185,7 +176,7 @@ export function ReviewDetailPanel({ review, returnTo = "/manual-reviews", onChan
             <button
               className="btn btn-primary w-full"
               type="submit"
-              disabled={busy || disabled || !reason.trim() || !actor.trim()}
+              disabled={busy || disabled || !reason.trim()}
               title={unavailableReason ?? undefined}
             >
               {busy ? "Resolving..." : "Resolve review"}

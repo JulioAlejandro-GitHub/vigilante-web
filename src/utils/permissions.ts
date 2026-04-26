@@ -1,6 +1,6 @@
 import type { Permission, PermissionResourceContext, PermissionResult, SessionOperationalContext, UserRole } from "../types/session";
 
-const rolePermissions: Record<UserRole, Set<Permission>> = {
+const rolePermissions: Record<string, Set<Permission>> = {
   analyst: new Set<Permission>(["case:write", "case:assign", "case:status", "case:note", "queue:resolve", "suggestion:resolve"]),
   supervisor: new Set<Permission>([
     "case:write",
@@ -33,21 +33,42 @@ const permissionLabels: Record<Permission, string> = {
   "supervisor:view": "view supervisor controls",
 };
 
-function contextMismatch(role: UserRole, sessionContext: SessionOperationalContext, resourceContext?: PermissionResourceContext) {
-  if (role === "supervisor" || !resourceContext) {
+const supervisorRoles = new Set(["supervisor", "admin"]);
+const analystRoles = new Set(["analyst", "operator", "reviewer", ...supervisorRoles]);
+
+function normalizeRoles(role: UserRole, roles: UserRole[] = []) {
+  return [role, ...roles].map((item) => item.toLowerCase());
+}
+
+function permissionProfile(role: UserRole, roles: UserRole[] = []) {
+  const normalized = normalizeRoles(role, roles);
+  if (normalized.some((item) => supervisorRoles.has(item))) {
+    return "supervisor";
+  }
+  if (normalized.some((item) => analystRoles.has(item))) {
+    return "analyst";
+  }
+  return normalized[0] ?? "none";
+}
+
+function contextMismatch(sessionContext: SessionOperationalContext, resourceContext?: PermissionResourceContext) {
+  if (!resourceContext) {
     return null;
   }
 
+  const organizationIds = sessionContext.organization_ids ?? (sessionContext.organization_id ? [sessionContext.organization_id] : []);
+  const siteIds = sessionContext.site_ids ?? (sessionContext.site_id ? [sessionContext.site_id] : []);
+
   if (
-    sessionContext.organization_id &&
+    organizationIds.length > 0 &&
     resourceContext.organization_id &&
-    sessionContext.organization_id !== resourceContext.organization_id
+    !organizationIds.includes(resourceContext.organization_id)
   ) {
-    return `Outside organization ${sessionContext.organization_id}.`;
+    return "Outside authenticated organization scope.";
   }
 
-  if (sessionContext.site_id && resourceContext.site_id && sessionContext.site_id !== resourceContext.site_id) {
-    return `Outside site ${sessionContext.site_id}.`;
+  if (siteIds.length > 0 && resourceContext.site_id && !siteIds.includes(resourceContext.site_id)) {
+    return "Outside authenticated site scope.";
   }
 
   return null;
@@ -58,15 +79,19 @@ export function checkPermission(
   permission: Permission,
   sessionContext: SessionOperationalContext,
   resourceContext?: PermissionResourceContext,
+  roles: UserRole[] = [],
 ): PermissionResult {
-  if (!rolePermissions[role].has(permission)) {
+  const profile = permissionProfile(role, roles);
+  const allowedPermissions = rolePermissions[profile] ?? new Set<Permission>();
+
+  if (!allowedPermissions.has(permission)) {
     return {
       allowed: false,
-      reason: `${role} role cannot ${permissionLabels[permission]} in this mock session.`,
+      reason: `${role} role cannot ${permissionLabels[permission]} in this authenticated session.`,
     };
   }
 
-  const mismatch = contextMismatch(role, sessionContext, resourceContext);
+  const mismatch = contextMismatch(sessionContext, resourceContext);
   if (mismatch) {
     return { allowed: false, reason: mismatch };
   }
@@ -75,5 +100,5 @@ export function checkPermission(
 }
 
 export function permissionHint(result: PermissionResult) {
-  return result.allowed ? null : result.reason ?? "Action is not available in this mock session.";
+  return result.allowed ? null : result.reason ?? "Action is not available in this authenticated session.";
 }

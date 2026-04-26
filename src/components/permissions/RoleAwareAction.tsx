@@ -27,7 +27,7 @@ export function RoleAwareAction({
     return <>{fallback}</>;
   }
 
-  const reason = result.allowed ? null : result.reason ?? "Action is not available in this mock session.";
+  const reason = result.allowed ? null : result.reason ?? "Action is not available in this authenticated session.";
 
   return (
     <div className="min-w-0">

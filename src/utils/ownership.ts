@@ -20,10 +20,14 @@ export function matchesOwnershipFilter(item: CaseRecord, filter: OwnershipFilter
 }
 
 export function matchesSessionContext(item: PermissionResourceContext, currentUser: CurrentUser) {
-  if (currentUser.organization_id && item.organization_id && item.organization_id !== currentUser.organization_id) {
+  if (
+    currentUser.organization_ids.length > 0 &&
+    item.organization_id &&
+    !currentUser.organization_ids.includes(item.organization_id)
+  ) {
     return false;
   }
-  if (currentUser.site_id && item.site_id && item.site_id !== currentUser.site_id) {
+  if (currentUser.site_ids.length > 0 && item.site_id && !currentUser.site_ids.includes(item.site_id)) {
     return false;
   }
   return true;

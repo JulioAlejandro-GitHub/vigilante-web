@@ -3,15 +3,15 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 
 import App from "./App";
-import { CurrentUserProvider } from "./context/CurrentUserContext";
+import { AuthProvider } from "./context/AuthContext";
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <CurrentUserProvider>
-      <BrowserRouter>
+    <BrowserRouter>
+      <AuthProvider>
         <App />
-      </BrowserRouter>
-    </CurrentUserProvider>
+      </AuthProvider>
+    </BrowserRouter>
   </React.StrictMode>,
 );

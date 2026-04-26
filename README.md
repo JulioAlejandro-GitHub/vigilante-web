@@ -23,9 +23,6 @@ Valor esperado para desarrollo local:
 
 ```bash
 VITE_API_BASE_URL=http://127.0.0.1:8000
-VITE_DEFAULT_USER=julio
-VITE_DEFAULT_ORGANIZATION_ID=
-VITE_DEFAULT_SITE_ID=
 ```
 
 En modo dev, Vite reenvía `/api/*` y `/health` a `VITE_API_BASE_URL`.
@@ -39,6 +36,21 @@ cd ../vigilante-api
 source .venv/bin/activate
 uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
+
+Para login local, sembrar los usuarios demo del backend si todavía no existen:
+
+```bash
+cd ../vigilante-api
+source .venv/bin/activate
+PYTHONPATH=. DEMO_AUTH_PASSWORD=demo123 python scripts/seed_demo_auth.py
+```
+
+Usuarios demo esperados por el seed local:
+
+- `julio` / `demo123`: rol `analyst`, scope demo org/site 1.
+- `maria` / `demo123`: rol `supervisor`, scopes demo org/site 1 y 2.
+
+El password demo puede cambiarse antes de ejecutar el seed usando `DEMO_AUTH_PASSWORD`.
 
 ## Instalación y ejecución
 
@@ -63,7 +75,8 @@ npm run build
 
 ## Rutas
 
-- `/` redirige a `/dashboard`
+- `/login` es pública
+- `/` redirige a `/dashboard` después de una sesión válida
 - `/dashboard`
 - `/my-work`
 - `/cases`
@@ -75,6 +88,33 @@ npm run build
 - `/timeline`
 - `/timeline/:sourceEventId`
 
+Todas las rutas salvo `/login` requieren una sesión válida obtenida contra `vigilante-api`.
+
+## Auth real
+
+La app usa auth real contra `vigilante-api` por defecto:
+
+- `POST /api/v1/auth/login` para obtener JWT.
+- JWT persistido en `localStorage` bajo `vigilante.auth.token.v1`.
+- `GET /api/v1/auth/me` para cargar el usuario actual real.
+- `POST /api/v1/auth/logout` antes de limpiar sesión local.
+- `Authorization: Bearer <token>` en requests protegidos bajo `/api/v1`.
+
+`AuthProvider` es la fuente central de sesión. `CurrentUserProvider` se mantiene como fachada de compatibilidad para las pantallas existentes, pero ya no usa identidad/rol/contexto mock como modo principal.
+
+La UI usa el usuario de `/auth/me` para:
+
+- ownership relativo a `currentUser.username`;
+- `assigned_by`, `changed_by`, `author` y `resolved_by` enviados por formularios;
+- permisos visuales según `role`/`roles`;
+- scope visible de organizaciones/sitios devuelto por backend.
+
+Manejo de errores auth:
+
+- `401`: se considera sesión inválida/expirada, se limpia el token local y las rutas privadas vuelven a `/login`.
+- `403`: se muestra como acceso denegado o como acción deshabilitada cuando el rol/scope real no permite operar.
+- login fallido: muestra error visible sin crear sesión local.
+
 ## Slice 7
 
 ### Navegación
@@ -82,27 +122,24 @@ npm run build
 - App shell con sidebar en desktop.
 - Drawer de navegación en móvil.
 - Indicador visual de ruta activa.
-- Menú de sesión mock con identidad, rol y contexto org/site.
+- Menú de sesión autenticada con identidad, rol, scope org/site y logout.
 - Links contextuales entre casos, reviews, suggestions, timeline y source events.
 - Retorno a resultados con filtros preservados mediante query params.
 - Entrada dedicada a `/my-work`.
 - Rutas dedicadas para review, suggestion y timeline event.
 
-### Sesión mock
+### Sesión real
 
-La app usa `CurrentUserProvider` para mantener una sesión mock local preparada para migrar a auth real:
+La app usa `AuthProvider` para mantener la sesión real:
 
-- default desde `VITE_DEFAULT_USER`
-- persistencia en `localStorage` bajo `vigilante.session.v1`
-- compatibilidad de lectura con el storage legacy `vigilante.currentUser`
-- separación interna entre `identity`, `role` y `context`
-- selector de identidad en header/drawer
-- selector de rol mock
-- edición de `organization_id` y `site_id` desde el drawer móvil
-- `currentUser` derivado mantiene `name`, `username`, `role`, `organization_id` y `site_id`
-- roles mock `analyst` y `supervisor`
+- login real con `POST /api/v1/auth/login`
+- persistencia de JWT en `localStorage` bajo `vigilante.auth.token.v1`
+- carga de usuario actual con `GET /api/v1/auth/me`
+- limpieza local y `POST /api/v1/auth/logout`
+- `currentUser` mantiene `user_id`, `username`, `email`, `display_name`, `role`, `roles`, `organization_ids`, `site_ids` y `scopes`
+- roles soportados visualmente como mínimo: `analyst` y `supervisor`
 
-Esa sesión se usa como default en:
+Esa sesión se usa en:
 
 - asignación/desasignación
 - cambios de estado, cierre y reapertura
@@ -111,16 +148,15 @@ Esa sesión se usa como default en:
 - resolución/promoción de case suggestions
 - links de "My cases"
 
-### RBAC visual mock
+### RBAC visual
 
-La UI expone una capa visual de permisos sin seguridad real de backend:
+La UI refleja los permisos más cercanos al RBAC real del backend:
 
-- `analyst`: asignarse casos, cambiar estado, agregar notas y resolver items de cola dentro de su contexto visual
-- `supervisor`: reasignar/desasignar, cerrar/reabrir, promover suggestions, ejecutar bulk actions y operar cross-context
+- `analyst`: asignarse casos, cambiar estado, agregar notas y resolver items de cola dentro de su scope autenticado
+- `supervisor`: reasignar/desasignar, cerrar/reabrir, promover suggestions y ejecutar bulk actions dentro de su scope autenticado
 - acciones no disponibles se ocultan o se deshabilitan con hints claros
-- el contexto org/site bloquea visualmente acciones de analyst cuando el item pertenece a otro contexto conocido
-
-Esta capa prepara la app para auth/RBAC real sin introducir tokens ni sesiones reales.
+- el scope org/site bloquea visualmente acciones cuando el item pertenece a otro contexto conocido
+- roles backend compatibles como `admin`, `operator` o `reviewer` se mapean al perfil visual más cercano
 
 ### My Work
 
@@ -132,7 +168,7 @@ Esta capa prepara la app para auth/RBAC real sin introducir tokens ni sesiones r
 - case suggestions pendientes relevantes al contexto org/site actual
 - quick filters por all/cases/queues
 - quick actions a cases, reviews, suggestions y bulk assignment queue
-- resumen visible de sesión mock y permisos
+- resumen visible de sesión real y permisos
 
 ### Filtros persistentes
 
@@ -252,7 +288,7 @@ Consume:
 - `POST /api/v1/manual-reviews/{review_id}/resolve`
 
 Soporta filtros por URL, listado responsive, detalle lateral enlazable con `review_id` y campos condicionales para `identity_conflict`.
-El panel de resolución usa el usuario actual como default en `resolved_by`.
+El panel de resolución usa el usuario autenticado real en `resolved_by`.
 El Slice 6 agrega quick filters, filtro cliente-side por contexto org/site, columna/chips de org/site, cierre explícito del detalle lateral y bulk approve con permiso visual.
 El Slice 7 agrega `/manual-reviews/:reviewId` como detalle dedicado con breadcrumbs, back contextual, `EntityHeader`, `InvestigationContextPanel`, `RelatedLinksPanel`, `EvidenceWorkspace` y acción de resolve.
 El detalle muestra contexto operativo enriquecido:
@@ -278,7 +314,7 @@ Consume:
 - `POST /api/v1/case-suggestions/{suggestion_id}/promote`
 
 Incluye filtros por URL, detalle lateral enlazable con `suggestion_id`, resolución y promoción con campos mínimos editables.
-El panel de acción usa el usuario actual como default en `resolved_by` y conserva retorno contextual al caso promovido.
+El panel de acción usa el usuario autenticado real en `resolved_by` y conserva retorno contextual al caso promovido.
 El Slice 6 agrega quick filters, filtro cliente-side por contexto org/site, columna/chips de org/site, cierre explícito del detalle lateral y bulk accept/defer/reject con permiso visual.
 El Slice 7 agrega `/case-suggestions/:suggestionId` como detalle dedicado con breadcrumbs, back contextual, `EntityHeader`, `InvestigationContextPanel`, `RelatedLinksPanel`, `EvidenceWorkspace`, resolve y promote.
 El detalle muestra contexto enriquecido:
@@ -358,7 +394,7 @@ El Slice 7 agrega `/timeline/:sourceEventId` como detalle dedicado con:
 El dashboard queda orientado a investigación y operación diaria:
 
 - Session summary card
-- permisos visibles según rol mock
+- permisos visibles según rol real de `/auth/me`
 - acceso directo a My Work
 - My cases
 - Open cases
@@ -366,13 +402,14 @@ El dashboard queda orientado a investigación y operación diaria:
 - Pending manual reviews
 - Pending case suggestions
 - accesos a unassigned y timeline forense
-- resumen del contexto mock de organization/site del usuario actual
+- resumen del scope organization/site del usuario autenticado
 
 ### Tests frontend
 
 La suite de Vitest cubre flujos críticos:
 
-- `CurrentUserContext`
+- `CurrentUserContext` como compatibilidad sobre sesión autenticada
+- cliente API con bearer token y notificación de `401`
 - `OwnerBadge`
 - navegación contextual básica
 - filtros persistentes por query params
@@ -395,10 +432,11 @@ npm run dev
 
 ## Pendientes
 
-- auth real
-- RBAC real desde servidor
 - CORS/configuración productiva en API
-- usuario real desde auth backend
+- refresh tokens/renovación silenciosa
+- MFA, SSO/OIDC y recuperación de contraseña
+- gestión admin de usuarios desde frontend
+- auth para futuras conexiones realtime
 - visor real de media/evidencia conectado a endpoints backend
 - catálogos reales de organization/site
 - realtime con SSE/websocket

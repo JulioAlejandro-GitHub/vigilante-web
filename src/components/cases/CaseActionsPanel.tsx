@@ -24,14 +24,10 @@ export function CaseActionsPanel({ caseId, status, currentOwner, assignedAt, res
   const [formError, setFormError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [actor, setActor] = useState(currentUser.username);
   const [lifecycleReason, setLifecycleReason] = useState("analyst operational update");
   const [targetStatus, setTargetStatus] = useState(status === "in_review" ? "open" : "in_review");
   const [note, setNote] = useState("");
-
-  useEffect(() => {
-    setActor(currentUser.username);
-  }, [currentUser.username]);
+  const actor = currentUser.username;
 
   useEffect(() => {
     setTargetStatus(status === "in_review" ? "open" : "in_review");
@@ -68,17 +64,17 @@ export function CaseActionsPanel({ caseId, status, currentOwner, assignedAt, res
   function submitStatus(event: FormEvent) {
     event.preventDefault();
     if (!can("case:status", resourceContext)) return;
-    if (!requireFields([["Reason", lifecycleReason], ["Actor", actor]])) return;
+    if (!requireFields([["Reason", lifecycleReason]])) return;
     void run("Change status", () =>
-      api.changeCaseStatus(caseId, { status: targetStatus, reason: lifecycleReason.trim(), changed_by: actor.trim() }),
+      api.changeCaseStatus(caseId, { status: targetStatus, reason: lifecycleReason.trim(), changed_by: actor }),
     );
   }
 
   function submitNote(event: FormEvent) {
     event.preventDefault();
     if (!can("case:note", resourceContext)) return;
-    if (!requireFields([["Note", note], ["Author", actor]])) return;
-    void run("Add note", () => api.addCaseNote(caseId, { author: actor.trim(), note_text: note.trim() }), () => setNote(""));
+    if (!requireFields([["Note", note]])) return;
+    void run("Add note", () => api.addCaseNote(caseId, { author: actor, note_text: note.trim() }), () => setNote(""));
   }
 
   const actionDisabled = busy !== null;
@@ -131,7 +127,7 @@ export function CaseActionsPanel({ caseId, status, currentOwner, assignedAt, res
             <button
               className="btn btn-primary w-full"
               type="submit"
-              disabled={actionDisabled || disabled || !lifecycleReason.trim() || !actor.trim()}
+              disabled={actionDisabled || disabled || !lifecycleReason.trim()}
               title={reason ?? undefined}
             >
               {busy === "Change status" ? "Changing..." : "Change status"}
@@ -144,12 +140,12 @@ export function CaseActionsPanel({ caseId, status, currentOwner, assignedAt, res
               <button
                 className="btn btn-danger w-full"
                 type="button"
-                disabled={actionDisabled || disabled || !lifecycleReason.trim() || !actor.trim()}
+                disabled={actionDisabled || disabled || !lifecycleReason.trim()}
                 title={reason ?? undefined}
                 onClick={() => {
                   if (!can("case:close", resourceContext)) return;
-                  if (!requireFields([["Reason", lifecycleReason], ["Actor", actor]])) return;
-                  void run("Close", () => api.closeCase(caseId, { reason: lifecycleReason.trim(), changed_by: actor.trim() }));
+                  if (!requireFields([["Reason", lifecycleReason]])) return;
+                  void run("Close", () => api.closeCase(caseId, { reason: lifecycleReason.trim(), changed_by: actor }));
                 }}
               >
                 {busy === "Close" ? "Closing..." : "Close"}
@@ -161,12 +157,12 @@ export function CaseActionsPanel({ caseId, status, currentOwner, assignedAt, res
               <button
                 className="btn w-full"
                 type="button"
-                disabled={actionDisabled || disabled || !lifecycleReason.trim() || !actor.trim()}
+                disabled={actionDisabled || disabled || !lifecycleReason.trim()}
                 title={reason ?? undefined}
                 onClick={() => {
                   if (!can("case:close", resourceContext)) return;
-                  if (!requireFields([["Reason", lifecycleReason], ["Actor", actor]])) return;
-                  void run("Reopen", () => api.reopenCase(caseId, { reason: lifecycleReason.trim(), changed_by: actor.trim() }));
+                  if (!requireFields([["Reason", lifecycleReason]])) return;
+                  void run("Reopen", () => api.reopenCase(caseId, { reason: lifecycleReason.trim(), changed_by: actor }));
                 }}
               >
                 {busy === "Reopen" ? "Reopening..." : "Reopen"}
@@ -186,7 +182,7 @@ export function CaseActionsPanel({ caseId, status, currentOwner, assignedAt, res
             <button
               className="btn btn-primary w-full"
               type="submit"
-              disabled={actionDisabled || disabled || !note.trim() || !actor.trim()}
+              disabled={actionDisabled || disabled || !note.trim()}
               title={reason ?? undefined}
             >
               {busy === "Add note" ? "Adding..." : "Add note"}

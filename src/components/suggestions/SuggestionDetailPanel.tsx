@@ -36,7 +36,6 @@ export function SuggestionDetailPanel({ suggestion, returnTo, onChanged, onClose
   const { currentUser, can } = useCurrentUser();
   const [decision, setDecision] = useState<"accepted" | "rejected" | "deferred">("accepted");
   const [reason, setReason] = useState("sufficient evidence for case creation");
-  const [actor, setActor] = useState(currentUser.username);
   const [caseTitle, setCaseTitle] = useState(suggestedTitle(suggestion));
   const [caseType, setCaseType] = useState("unresolved_subject_case");
   const [priority, setPriority] = useState("medium");
@@ -57,10 +56,6 @@ export function SuggestionDetailPanel({ suggestion, returnTo, onChanged, onClose
     setError(null);
     setSuccess(null);
   }, [suggestion?.suggestion_id]);
-
-  useEffect(() => {
-    setActor(currentUser.username);
-  }, [currentUser.username]);
 
   if (!suggestion) {
     return <div className="rounded border border-dashed border-zinc-300 bg-white p-4 text-sm text-zinc-600">Select a case suggestion.</div>;
@@ -93,28 +88,26 @@ export function SuggestionDetailPanel({ suggestion, returnTo, onChanged, onClose
     event.preventDefault();
     if (!can("suggestion:resolve", { organization_id: currentSuggestion.organization_id, site_id: currentSuggestion.site_id })) return;
     const trimmedReason = reason.trim();
-    const trimmedActor = actor.trim();
-    if (!trimmedReason || !trimmedActor) {
-      setFormError("Decision reason and resolved by are required.");
+    if (!trimmedReason) {
+      setFormError("Decision reason is required.");
       return;
     }
     void run("Resolve suggestion", () =>
-      api.resolveCaseSuggestion(currentSuggestion.suggestion_id, { decision, decision_reason: trimmedReason, resolved_by: trimmedActor }),
+      api.resolveCaseSuggestion(currentSuggestion.suggestion_id, { decision, decision_reason: trimmedReason, resolved_by: currentUser.username }),
     );
   }
 
   function promote() {
     if (!can("suggestion:promote", { organization_id: currentSuggestion.organization_id, site_id: currentSuggestion.site_id })) return;
-    const trimmedActor = actor.trim();
     const trimmedTitle = caseTitle.trim();
     const trimmedCaseType = caseType.trim();
-    if (!trimmedActor || !trimmedTitle || !trimmedCaseType) {
-      setFormError("Resolved by, title and case type are required before promotion.");
+    if (!trimmedTitle || !trimmedCaseType) {
+      setFormError("Title and case type are required before promotion.");
       return;
     }
     void run("Promote to case", () =>
       api.promoteCaseSuggestion(currentSuggestion.suggestion_id, {
-        resolved_by: trimmedActor,
+        resolved_by: currentUser.username,
         case_type: trimmedCaseType,
         title: trimmedTitle,
         priority,
@@ -190,15 +183,12 @@ export function SuggestionDetailPanel({ suggestion, returnTo, onChanged, onClose
         <FormField label="Decision reason">
           <input className="field" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="sufficient evidence" />
         </FormField>
-        <FormField label="Resolved by">
-          <input className="field" value={actor} onChange={(event) => setActor(event.target.value)} placeholder={currentUser.username} />
-        </FormField>
         <RoleAwareAction permission="suggestion:resolve" resourceContext={{ organization_id: suggestion.organization_id, site_id: suggestion.site_id }}>
           {({ disabled, reason: unavailableReason }) => (
             <button
               className="btn btn-primary w-full"
               type="submit"
-              disabled={busy !== null || disabled || !reason.trim() || !actor.trim()}
+              disabled={busy !== null || disabled || !reason.trim()}
               title={unavailableReason ?? undefined}
             >
               {busy === "Resolve suggestion" ? "Resolving..." : "Resolve suggestion"}
@@ -237,7 +227,7 @@ export function SuggestionDetailPanel({ suggestion, returnTo, onChanged, onClose
             <button
               className="btn w-full"
               type="button"
-              disabled={busy !== null || disabled || !caseTitle.trim() || !caseType.trim() || !actor.trim()}
+              disabled={busy !== null || disabled || !caseTitle.trim() || !caseType.trim()}
               onClick={promote}
               title={unavailableReason ?? undefined}
             >

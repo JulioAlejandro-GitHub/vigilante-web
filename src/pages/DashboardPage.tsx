@@ -6,9 +6,10 @@ import { DataState } from "../components/DataState";
 import { WorkQueueCard } from "../components/dashboard/WorkQueueCard";
 import { PageHeader } from "../components/PageHeader";
 import { SessionSummaryCard } from "../components/session/SessionSummaryCard";
-import { CurrentUser, useCurrentUser } from "../context/CurrentUserContext";
+import { useCurrentUser } from "../context/CurrentUserContext";
 import { useAsyncData } from "../hooks/useAsyncData";
 import type { DashboardSummary } from "../types/api";
+import type { CurrentUser } from "../types/session";
 
 export function DashboardPage() {
   const { currentUser } = useCurrentUser();
@@ -44,8 +45,8 @@ function DashboardContent({ summary, currentUser }: { summary: DashboardSummary;
           <h2 className="text-base font-semibold text-zinc-950">Session permissions</h2>
           <p className="mt-3 text-sm text-zinc-700">
             {currentUser.role === "supervisor"
-              ? "Supervisor mock session: bulk actions, reassignment, promotion and cross-context controls are visually available."
-              : "Analyst mock session: personal ownership, case status, notes and queue resolution are available; supervisor actions show disabled hints."}
+              ? "Supervisor session: bulk actions, reassignment, promotion and advanced controls reflect the authenticated backend role."
+              : "Authenticated session: available actions follow the role and scope returned by vigilante-api."}
           </p>
           <Link className="btn mt-4 w-full justify-between" to="/my-work">
             Open My Work
