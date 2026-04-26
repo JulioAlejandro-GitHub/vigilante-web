@@ -2,6 +2,7 @@ import { RefreshCw } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
+import { runSequentialBulkAction } from "../api/bulkActions";
 import { api } from "../api/vigilanteApi";
 import { DataState, EmptyState } from "../components/DataState";
 import { FilterBar } from "../components/filters/FilterBar";
@@ -9,9 +10,12 @@ import { FormField } from "../components/forms/FormField";
 import { OwnerBadge } from "../components/ownership/OwnerBadge";
 import { PageHeader } from "../components/PageHeader";
 import { PaginationControls } from "../components/PaginationControls";
+import { BulkActionBar } from "../components/selection/BulkActionBar";
+import { SelectionToolbar } from "../components/selection/SelectionToolbar";
 import { StatusBadge, statusTone } from "../components/StatusBadge";
 import { useCurrentUser } from "../context/CurrentUserContext";
 import { useAsyncData } from "../hooks/useAsyncData";
+import { useBulkSelection } from "../hooks/useBulkSelection";
 import { useQueryParams } from "../hooks/useQueryParams";
 import type { CaseListParams, CaseRecord } from "../types/api";
 import { formatDateTime, shortId } from "../utils/format";
@@ -57,9 +61,13 @@ function activeCaseFilters(params: CasesQueryParams) {
 
 export function CasesPage() {
   const location = useLocation();
-  const { currentUser } = useCurrentUser();
+  const { currentUser, can } = useCurrentUser();
   const { params, setParams, resetParams } = useQueryParams(CASE_DEFAULTS);
   const [draft, setDraft] = useState(params);
+  const [bulkStatus, setBulkStatus] = useState("in_review");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkSuccess, setBulkSuccess] = useState<string | null>(null);
   const filters = useMemo<CaseListParams>(
     () => ({
       status: params.status,
@@ -98,8 +106,23 @@ export function CasesPage() {
 
   const cases = data ?? [];
   const visibleCases = params.ownership === "unassigned" ? cases.filter((item) => !item.assigned_to) : cases;
+  const selection = useBulkSelection(visibleCases.map((item) => item.case_id));
   const activeCount = activeCaseFilters(params);
   const returnTo = `${location.pathname}${location.search}`;
+
+  async function runBulk(label: string, action: (caseId: string) => Promise<unknown>) {
+    if (bulkBusy || selection.selectedCount === 0 || !can("bulk:write")) return;
+    setBulkBusy(true);
+    setBulkError(null);
+    setBulkSuccess(null);
+    const result = await runSequentialBulkAction(selection.selectedList, (caseId) => caseId, action);
+
+    setBulkSuccess(`${label}: ${result.succeeded}/${result.total} completed`);
+    setBulkError(result.failures.length > 0 ? result.failures.map((item) => `${shortId(item.id)}: ${item.error}`).join(" | ") : null);
+    selection.clearSelection();
+    refresh();
+    setBulkBusy(false);
+  }
 
   return (
     <div>
@@ -242,11 +265,75 @@ export function CasesPage() {
           <EmptyState label="No cases match the current filters." />
         ) : (
           <>
+            <SelectionToolbar
+              selectedCount={selection.selectedCount}
+              allVisibleSelected={selection.allVisibleSelected}
+              visibleCount={visibleCases.length}
+              onToggleAll={selection.toggleAllVisible}
+              onClear={selection.clearSelection}
+            />
+            <BulkActionBar selectedCount={selection.selectedCount} busy={bulkBusy} error={bulkError} success={bulkSuccess}>
+              <button
+                className="btn btn-primary"
+                type="button"
+                disabled={bulkBusy || !can("bulk:write")}
+                onClick={() =>
+                  void runBulk("Assign to me", (caseId) =>
+                    api.assignCase(caseId, {
+                      assigned_to: currentUser.username,
+                      assigned_by: currentUser.username,
+                      assignment_reason: "bulk assignment from work queue",
+                    }),
+                  )
+                }
+              >
+                Assign to me
+              </button>
+              <button
+                className="btn"
+                type="button"
+                disabled={bulkBusy || !can("bulk:write")}
+                onClick={() =>
+                  void runBulk("Unassign", (caseId) =>
+                    api.unassignCase(caseId, {
+                      assigned_by: currentUser.username,
+                      assignment_reason: "bulk unassignment from work queue",
+                    }),
+                  )
+                }
+              >
+                Unassign
+              </button>
+              <select className="field w-auto min-w-36" value={bulkStatus} onChange={(event) => setBulkStatus(event.target.value)} disabled={bulkBusy}>
+                <option value="open">open</option>
+                <option value="in_review">in_review</option>
+                <option value="resolved">resolved</option>
+                <option value="closed">closed</option>
+                <option value="reopened">reopened</option>
+              </select>
+              <button
+                className="btn"
+                type="button"
+                disabled={bulkBusy || !can("bulk:write")}
+                onClick={() =>
+                  void runBulk("Change status", (caseId) =>
+                    api.changeCaseStatus(caseId, {
+                      status: bulkStatus,
+                      reason: "bulk status update from work queue",
+                      changed_by: currentUser.username,
+                    }),
+                  )
+                }
+              >
+                Set status
+              </button>
+            </BulkActionBar>
             <div className="hidden overflow-hidden md:block md:rounded md:border md:border-zinc-200 md:bg-white">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-zinc-200 text-sm">
                   <thead className="bg-zinc-100 text-left text-xs font-semibold uppercase text-zinc-500">
                     <tr>
+                      <th className="px-4 py-3">Select</th>
                       <th className="px-4 py-3">Case</th>
                       <th className="px-4 py-3">Type</th>
                       <th className="px-4 py-3">Status</th>
@@ -260,6 +347,14 @@ export function CasesPage() {
                   <tbody className="divide-y divide-zinc-200 bg-white">
                     {visibleCases.map((item) => (
                       <tr key={item.case_id} className="align-top hover:bg-zinc-50">
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selection.isSelected(item.case_id)}
+                            onChange={() => selection.toggle(item.case_id)}
+                            aria-label={`Select ${item.title}`}
+                          />
+                        </td>
                         <td className="px-4 py-3">
                           <Link
                             className="font-medium text-zinc-950 underline-offset-2 hover:underline"
@@ -295,7 +390,7 @@ export function CasesPage() {
 
             <div className="space-y-3 md:hidden">
               {visibleCases.map((item) => (
-                <CaseCard key={item.case_id} item={item} returnTo={returnTo} />
+                <CaseCard key={item.case_id} item={item} returnTo={returnTo} selected={selection.isSelected(item.case_id)} onToggle={() => selection.toggle(item.case_id)} />
               ))}
             </div>
 
@@ -307,13 +402,18 @@ export function CasesPage() {
   );
 }
 
-function CaseCard({ item, returnTo }: { item: CaseRecord; returnTo: string }) {
+function CaseCard({ item, returnTo, selected, onToggle }: { item: CaseRecord; returnTo: string; selected: boolean; onToggle: () => void }) {
   return (
-    <Link className="panel block p-4 hover:border-teal-200 hover:bg-teal-50/30" to={`/cases/${item.case_id}`} state={{ returnTo }}>
+    <div className={`panel p-4 hover:border-teal-200 hover:bg-teal-50/30 ${selected ? "border-teal-300 bg-teal-50/60" : ""}`}>
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="font-medium text-zinc-950">{item.title}</div>
-          <div className="mt-1 text-xs text-zinc-500">{shortId(item.case_id)}</div>
+        <div className="flex min-w-0 gap-3">
+          <input className="mt-1" type="checkbox" checked={selected} onChange={onToggle} aria-label={`Select ${item.title}`} />
+          <div className="min-w-0">
+            <Link className="font-medium text-zinc-950 underline-offset-2 hover:underline" to={`/cases/${item.case_id}`} state={{ returnTo }}>
+              {item.title}
+            </Link>
+            <div className="mt-1 text-xs text-zinc-500">{shortId(item.case_id)}</div>
+          </div>
         </div>
         <StatusBadge value={item.status} tone={statusTone(item.status)} />
       </div>
@@ -344,6 +444,6 @@ function CaseCard({ item, returnTo }: { item: CaseRecord; returnTo: string }) {
         <span>Org {shortId(item.organization_id)}</span>
         <span>Site {shortId(item.site_id)}</span>
       </div>
-    </Link>
+    </div>
   );
 }

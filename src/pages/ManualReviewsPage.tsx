@@ -1,21 +1,23 @@
 import { RefreshCw } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
+import { runSequentialBulkAction } from "../api/bulkActions";
 import { api } from "../api/vigilanteApi";
 import { DataState, EmptyState } from "../components/DataState";
-import { Feedback } from "../components/Feedback";
 import { FilterBar } from "../components/filters/FilterBar";
 import { FormField } from "../components/forms/FormField";
-import { KeyValue } from "../components/KeyValue";
 import { PageHeader } from "../components/PageHeader";
 import { PaginationControls } from "../components/PaginationControls";
-import { QueueActionPanel } from "../components/queues/QueueActionPanel";
+import { ReviewDetailPanel } from "../components/reviews/ReviewDetailPanel";
+import { BulkActionBar } from "../components/selection/BulkActionBar";
+import { SelectionToolbar } from "../components/selection/SelectionToolbar";
 import { StatusBadge, statusTone } from "../components/StatusBadge";
 import { useCurrentUser } from "../context/CurrentUserContext";
 import { useAsyncData } from "../hooks/useAsyncData";
+import { useBulkSelection } from "../hooks/useBulkSelection";
 import { useQueryParams } from "../hooks/useQueryParams";
 import type { ManualReview, QueueListParams } from "../types/api";
-import { asErrorMessage, formatDateTime, shortId } from "../utils/format";
+import { formatDateTime, shortId } from "../utils/format";
 
 type ManualReviewQueryParams = {
   status: string;
@@ -49,6 +51,9 @@ export function ManualReviewsPage() {
   const { params, setParams, resetParams } = useQueryParams(MANUAL_REVIEW_DEFAULTS);
   const [draft, setDraft] = useState(params);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkSuccess, setBulkSuccess] = useState<string | null>(null);
   const filters = useMemo<QueueListParams>(() => params, [params]);
   const { data, loading, error, refresh } = useAsyncData(() => api.listManualReviews(filters), [JSON.stringify(filters)]);
 
@@ -73,6 +78,7 @@ export function ManualReviewsPage() {
   }
 
   const reviews = data ?? [];
+  const selection = useBulkSelection(reviews.map((review) => review.review_id));
   const currentReviewId = selectedId ?? reviews[0]?.review_id ?? null;
   const {
     data: selectedReview,
@@ -87,6 +93,31 @@ export function ManualReviewsPage() {
     refresh();
     refreshSelected();
   };
+
+  async function bulkApprove() {
+    if (bulkBusy || selection.selectedCount === 0) return;
+    const selectedReviews = reviews.filter((review) => selection.selectedIds.has(review.review_id));
+    setBulkBusy(true);
+    setBulkError(null);
+    setBulkSuccess(null);
+    const result = await runSequentialBulkAction(
+      selectedReviews,
+      (review) => review.review_id,
+      (review) =>
+        api.resolveManualReview(review.review_id, {
+          decision: "approved",
+          decision_reason: "bulk approved from work queue",
+          resolved_by: currentUser.username,
+          ...(review.review_type === "identity_conflict" ? { identity_resolution: "mark_unresolved" } : {}),
+        }),
+    );
+
+    setBulkSuccess(`Bulk approve: ${result.succeeded}/${result.total} completed`);
+    setBulkError(result.failures.length > 0 ? result.failures.map((item) => `${shortId(item.id)}: ${item.error}`).join(" | ") : null);
+    selection.clearSelection();
+    refreshAll();
+    setBulkBusy(false);
+  }
 
   return (
     <div>
@@ -178,11 +209,24 @@ export function ManualReviewsPage() {
               <EmptyState label="No manual reviews match the current filters." />
             ) : (
               <>
+                <SelectionToolbar
+                  selectedCount={selection.selectedCount}
+                  allVisibleSelected={selection.allVisibleSelected}
+                  visibleCount={reviews.length}
+                  onToggleAll={selection.toggleAllVisible}
+                  onClear={selection.clearSelection}
+                />
+                <BulkActionBar selectedCount={selection.selectedCount} busy={bulkBusy} error={bulkError} success={bulkSuccess}>
+                  <button className="btn btn-primary" type="button" disabled={bulkBusy} onClick={() => void bulkApprove()}>
+                    Bulk approve
+                  </button>
+                </BulkActionBar>
                 <div className="hidden overflow-hidden md:block md:rounded md:border md:border-zinc-200 md:bg-white">
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-zinc-200 text-sm">
                       <thead className="bg-zinc-100 text-left text-xs font-semibold uppercase text-zinc-500">
                         <tr>
+                          <th className="px-4 py-3">Select</th>
                           <th className="px-4 py-3">Review</th>
                           <th className="px-4 py-3">Status</th>
                           <th className="px-4 py-3">Priority</th>
@@ -199,6 +243,14 @@ export function ManualReviewsPage() {
                             }`}
                             onClick={() => setSelectedId(review.review_id)}
                           >
+                            <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={selection.isSelected(review.review_id)}
+                                onChange={() => selection.toggle(review.review_id)}
+                                aria-label={`Select ${review.review_type}`}
+                              />
+                            </td>
                             <td className="px-4 py-3">
                               <div className="font-medium">{review.review_type}</div>
                               <div className="mt-1 text-xs text-zinc-500">{shortId(review.review_id)}</div>
@@ -226,6 +278,15 @@ export function ManualReviewsPage() {
                       type="button"
                       onClick={() => setSelectedId(review.review_id)}
                     >
+                      <span className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-zinc-700" onClick={(event) => event.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selection.isSelected(review.review_id)}
+                          onChange={() => selection.toggle(review.review_id)}
+                          aria-label={`Select ${review.review_type}`}
+                        />
+                        Select
+                      </span>
                       <ReviewSummary review={review} />
                     </button>
                   ))}
@@ -238,7 +299,7 @@ export function ManualReviewsPage() {
         </div>
 
         <DataState loading={selectedLoading} error={selectedError} onRetry={refreshSelected}>
-          <ReviewDetail review={selectedReview} defaultActor={currentUser.username} onChanged={refreshAll} />
+          <ReviewDetailPanel review={selectedReview} onChanged={refreshAll} />
         </DataState>
       </div>
     </div>
@@ -277,121 +338,5 @@ function ReviewSummary({ review }: { review: ManualReview }) {
       </div>
       <div className="mt-3 text-xs text-zinc-500">{formatDateTime(review.event_ts)}</div>
     </>
-  );
-}
-
-function ReviewDetail({ review, defaultActor, onChanged }: { review: ManualReview | null; defaultActor: string; onChanged: () => void }) {
-  const [decision, setDecision] = useState<"approved" | "rejected" | "needs_more_evidence">("approved");
-  const [reason, setReason] = useState("confirmed by analyst");
-  const [actor, setActor] = useState(defaultActor);
-  const [identityResolution, setIdentityResolution] = useState<"confirm_identity" | "discard_candidate" | "mark_unresolved" | "escalate">(
-    "confirm_identity",
-  );
-  const [confirmedPerson, setConfirmedPerson] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  useEffect(() => {
-    setFormError(null);
-    setError(null);
-    setSuccess(null);
-  }, [review?.review_id]);
-
-  useEffect(() => {
-    setActor(defaultActor);
-  }, [defaultActor]);
-
-  if (!review) {
-    return <EmptyState label="Select a manual review." />;
-  }
-  const currentReview = review;
-
-  async function resolve(event: FormEvent) {
-    event.preventDefault();
-    if (busy) return;
-
-    const trimmedReason = reason.trim();
-    const trimmedActor = actor.trim();
-    if (!trimmedReason || !trimmedActor) {
-      setFormError("Decision reason and resolved by are required.");
-      return;
-    }
-
-    setBusy(true);
-    setFormError(null);
-    setError(null);
-    setSuccess(null);
-    try {
-      await api.resolveManualReview(currentReview.review_id, {
-        decision,
-        decision_reason: trimmedReason,
-        resolved_by: trimmedActor,
-        ...(currentReview.review_type === "identity_conflict"
-          ? {
-              identity_resolution: identityResolution,
-              confirmed_person_profile_id: confirmedPerson.trim() || undefined,
-            }
-          : {}),
-      });
-      setSuccess("Review resolved");
-      onChanged();
-    } catch (caught) {
-      setError(asErrorMessage(caught));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <QueueActionPanel
-      title="Review detail"
-      subtitle={`${shortId(review.review_id)} · acting as ${defaultActor}`}
-      status={<StatusBadge value={review.status} tone={statusTone(review.status)} />}
-    >
-      <div className="mt-4 grid gap-3">
-        <KeyValue label="Type" value={review.review_type} />
-        <KeyValue label="Priority" value={review.priority} />
-        <KeyValue label="Severity" value={<StatusBadge value={review.severity} tone={statusTone(review.severity)} />} />
-        <KeyValue label="Organization" value={shortId(review.organization_id)} />
-        <KeyValue label="Site" value={shortId(review.site_id)} />
-        <KeyValue label="Reason" value={review.reason_summary} />
-      </div>
-      <form className="mt-5 space-y-3 border-t border-zinc-200 pt-4" onSubmit={resolve}>
-        <Feedback error={formError ?? error} success={success} />
-        <FormField label="Decision">
-          <select className="field" value={decision} onChange={(event) => setDecision(event.target.value as typeof decision)}>
-            <option value="approved">approved</option>
-            <option value="rejected">rejected</option>
-            <option value="needs_more_evidence">needs_more_evidence</option>
-          </select>
-        </FormField>
-        <FormField label="Decision reason">
-          <input className="field" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="confirmed by analyst" />
-        </FormField>
-        <FormField label="Resolved by">
-          <input className="field" value={actor} onChange={(event) => setActor(event.target.value)} placeholder={defaultActor} />
-        </FormField>
-        {review.review_type === "identity_conflict" ? (
-          <>
-            <FormField label="Identity resolution">
-              <select className="field" value={identityResolution} onChange={(event) => setIdentityResolution(event.target.value as typeof identityResolution)}>
-                <option value="confirm_identity">confirm_identity</option>
-                <option value="discard_candidate">discard_candidate</option>
-                <option value="mark_unresolved">mark_unresolved</option>
-                <option value="escalate">escalate</option>
-              </select>
-            </FormField>
-            <FormField label="Confirmed profile">
-              <input className="field" value={confirmedPerson} onChange={(event) => setConfirmedPerson(event.target.value)} placeholder="person_profile_id" />
-            </FormField>
-          </>
-        ) : null}
-        <button className="btn btn-primary w-full" type="submit" disabled={busy || !reason.trim() || !actor.trim()}>
-          {busy ? "Resolving..." : "Resolve review"}
-        </button>
-      </form>
-    </QueueActionPanel>
   );
 }

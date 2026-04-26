@@ -1,7 +1,7 @@
 import { Activity, ClipboardList, FileText, LayoutDashboard, Search, ShieldCheck } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
-import { useCurrentUser } from "../../context/CurrentUserContext";
+import { CurrentUserMenu } from "../session/CurrentUserMenu";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -16,8 +16,6 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onNavigate }: SidebarProps) {
-  const { currentUser, setCurrentUserName } = useCurrentUser();
-
   return (
     <div className="flex h-full flex-col bg-white">
       <div className="flex min-h-16 items-center gap-3 border-b border-zinc-200 px-4">
@@ -47,15 +45,9 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         ))}
       </nav>
       <div className="border-t border-zinc-200 p-4 text-xs text-zinc-500">
-        <label className="mb-3 block lg:hidden">
-          <span className="font-medium text-zinc-700">Current user</span>
-          <input
-            className="field mt-1 py-1 text-xs"
-            value={currentUser.username}
-            onChange={(event) => setCurrentUserName(event.target.value)}
-            placeholder="julio"
-          />
-        </label>
+        <div className="mb-3 lg:hidden">
+          <CurrentUserMenu compact />
+        </div>
         <div className="font-medium text-zinc-700">API</div>
         <div className="mt-1 truncate">{import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000"}</div>
       </div>

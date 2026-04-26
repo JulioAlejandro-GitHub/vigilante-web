@@ -1,22 +1,24 @@
 import { RefreshCw } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 
+import { runSequentialBulkAction } from "../api/bulkActions";
 import { api } from "../api/vigilanteApi";
 import { DataState, EmptyState } from "../components/DataState";
-import { Feedback } from "../components/Feedback";
 import { FilterBar } from "../components/filters/FilterBar";
 import { FormField } from "../components/forms/FormField";
-import { KeyValue } from "../components/KeyValue";
 import { PageHeader } from "../components/PageHeader";
 import { PaginationControls } from "../components/PaginationControls";
-import { QueueActionPanel } from "../components/queues/QueueActionPanel";
+import { BulkActionBar } from "../components/selection/BulkActionBar";
+import { SelectionToolbar } from "../components/selection/SelectionToolbar";
+import { SuggestionDetailPanel } from "../components/suggestions/SuggestionDetailPanel";
 import { StatusBadge, statusTone } from "../components/StatusBadge";
 import { useCurrentUser } from "../context/CurrentUserContext";
 import { useAsyncData } from "../hooks/useAsyncData";
+import { useBulkSelection } from "../hooks/useBulkSelection";
 import { useQueryParams } from "../hooks/useQueryParams";
 import type { CaseSuggestion, QueueListParams } from "../types/api";
-import { asErrorMessage, formatDateTime, shortId } from "../utils/format";
+import { formatDateTime, shortId } from "../utils/format";
 
 type SuggestionQueryParams = {
   status: string;
@@ -43,17 +45,15 @@ function activeSuggestionFilters(params: SuggestionQueryParams) {
   }).length;
 }
 
-function suggestedTitle(suggestion: CaseSuggestion | null) {
-  const value = suggestion?.payload?.suggested_title;
-  return typeof value === "string" && value.trim() ? value : "Recurring unidentified subject";
-}
-
 export function CaseSuggestionsPage() {
   const location = useLocation();
   const { currentUser } = useCurrentUser();
   const { params, setParams, resetParams } = useQueryParams(SUGGESTION_DEFAULTS);
   const [draft, setDraft] = useState(params);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkSuccess, setBulkSuccess] = useState<string | null>(null);
   const filters = useMemo<QueueListParams>(() => params, [params]);
   const { data, loading, error, refresh } = useAsyncData(() => api.listCaseSuggestions(filters), [JSON.stringify(filters)]);
 
@@ -78,6 +78,7 @@ export function CaseSuggestionsPage() {
   }
 
   const suggestions = data ?? [];
+  const selection = useBulkSelection(suggestions.map((suggestion) => suggestion.suggestion_id));
   const returnTo = `${location.pathname}${location.search}`;
   const currentSuggestionId = selectedId ?? suggestions[0]?.suggestion_id ?? null;
   const {
@@ -93,6 +94,30 @@ export function CaseSuggestionsPage() {
     refresh();
     refreshSelected();
   };
+
+  async function bulkResolve(decision: "accepted" | "rejected" | "deferred") {
+    if (bulkBusy || selection.selectedCount === 0) return;
+    const selectedSuggestions = suggestions.filter((suggestion) => selection.selectedIds.has(suggestion.suggestion_id));
+    setBulkBusy(true);
+    setBulkError(null);
+    setBulkSuccess(null);
+    const result = await runSequentialBulkAction(
+      selectedSuggestions,
+      (suggestion) => suggestion.suggestion_id,
+      (suggestion) =>
+        api.resolveCaseSuggestion(suggestion.suggestion_id, {
+          decision,
+          decision_reason: `bulk ${decision} from work queue`,
+          resolved_by: currentUser.username,
+        }),
+    );
+
+    setBulkSuccess(`Bulk ${decision}: ${result.succeeded}/${result.total} completed`);
+    setBulkError(result.failures.length > 0 ? result.failures.map((item) => `${shortId(item.id)}: ${item.error}`).join(" | ") : null);
+    selection.clearSelection();
+    refreshAll();
+    setBulkBusy(false);
+  }
 
   return (
     <div>
@@ -174,11 +199,30 @@ export function CaseSuggestionsPage() {
               <EmptyState label="No case suggestions match the current filters." />
             ) : (
               <>
+                <SelectionToolbar
+                  selectedCount={selection.selectedCount}
+                  allVisibleSelected={selection.allVisibleSelected}
+                  visibleCount={suggestions.length}
+                  onToggleAll={selection.toggleAllVisible}
+                  onClear={selection.clearSelection}
+                />
+                <BulkActionBar selectedCount={selection.selectedCount} busy={bulkBusy} error={bulkError} success={bulkSuccess}>
+                  <button className="btn btn-primary" type="button" disabled={bulkBusy} onClick={() => void bulkResolve("accepted")}>
+                    Accept
+                  </button>
+                  <button className="btn" type="button" disabled={bulkBusy} onClick={() => void bulkResolve("deferred")}>
+                    Defer
+                  </button>
+                  <button className="btn btn-danger" type="button" disabled={bulkBusy} onClick={() => void bulkResolve("rejected")}>
+                    Reject
+                  </button>
+                </BulkActionBar>
                 <div className="hidden overflow-hidden md:block md:rounded md:border md:border-zinc-200 md:bg-white">
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-zinc-200 text-sm">
                       <thead className="bg-zinc-100 text-left text-xs font-semibold uppercase text-zinc-500">
                         <tr>
+                          <th className="px-4 py-3">Select</th>
                           <th className="px-4 py-3">Suggestion</th>
                           <th className="px-4 py-3">Status</th>
                           <th className="px-4 py-3">Evidence</th>
@@ -195,6 +239,14 @@ export function CaseSuggestionsPage() {
                             }`}
                             onClick={() => setSelectedId(suggestion.suggestion_id)}
                           >
+                            <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={selection.isSelected(suggestion.suggestion_id)}
+                                onChange={() => selection.toggle(suggestion.suggestion_id)}
+                                aria-label={`Select ${suggestion.suggestion_type}`}
+                              />
+                            </td>
                             <td className="px-4 py-3">
                               <div className="font-medium">{suggestion.suggestion_type}</div>
                               <div className="mt-1 text-xs text-zinc-500">{shortId(suggestion.suggestion_id)}</div>
@@ -222,6 +274,15 @@ export function CaseSuggestionsPage() {
                       type="button"
                       onClick={() => setSelectedId(suggestion.suggestion_id)}
                     >
+                      <span className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-zinc-700" onClick={(event) => event.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selection.isSelected(suggestion.suggestion_id)}
+                          onChange={() => selection.toggle(suggestion.suggestion_id)}
+                          aria-label={`Select ${suggestion.suggestion_type}`}
+                        />
+                        Select
+                      </span>
                       <SuggestionSummary suggestion={suggestion} />
                     </button>
                   ))}
@@ -234,7 +295,7 @@ export function CaseSuggestionsPage() {
         </div>
 
         <DataState loading={selectedLoading} error={selectedError} onRetry={refreshSelected}>
-          <SuggestionDetail suggestion={selectedSuggestion} defaultActor={currentUser.username} returnTo={returnTo} onChanged={refreshAll} />
+          <SuggestionDetailPanel suggestion={selectedSuggestion} returnTo={returnTo} onChanged={refreshAll} />
         </DataState>
       </div>
     </div>
@@ -271,172 +332,5 @@ function SuggestionSummary({ suggestion }: { suggestion: CaseSuggestion }) {
       </div>
       <div className="mt-3 text-xs text-zinc-500">{formatDateTime(suggestion.event_ts)}</div>
     </>
-  );
-}
-
-function SuggestionDetail({
-  suggestion,
-  defaultActor,
-  returnTo,
-  onChanged,
-}: {
-  suggestion: CaseSuggestion | null;
-  defaultActor: string;
-  returnTo: string;
-  onChanged: () => void;
-}) {
-  const [decision, setDecision] = useState<"accepted" | "rejected" | "deferred">("accepted");
-  const [reason, setReason] = useState("sufficient evidence for case creation");
-  const [actor, setActor] = useState(defaultActor);
-  const [caseTitle, setCaseTitle] = useState(suggestedTitle(suggestion));
-  const [caseType, setCaseType] = useState("unresolved_subject_case");
-  const [priority, setPriority] = useState("medium");
-  const [severity, setSeverity] = useState("medium");
-  const [busy, setBusy] = useState<string | null>(null);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  useEffect(() => {
-    setCaseTitle(suggestedTitle(suggestion));
-    setFormError(null);
-    setError(null);
-    setSuccess(null);
-  }, [suggestion?.suggestion_id]);
-
-  useEffect(() => {
-    setActor(defaultActor);
-  }, [defaultActor]);
-
-  if (!suggestion) {
-    return <EmptyState label="Select a case suggestion." />;
-  }
-  const currentSuggestion = suggestion;
-
-  async function run(label: string, action: () => Promise<unknown>) {
-    if (busy) return;
-
-    setBusy(label);
-    setFormError(null);
-    setError(null);
-    setSuccess(null);
-    try {
-      await action();
-      setSuccess(`${label} completed`);
-      onChanged();
-    } catch (caught) {
-      setError(asErrorMessage(caught));
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  function resolve(event: FormEvent) {
-    event.preventDefault();
-    const trimmedReason = reason.trim();
-    const trimmedActor = actor.trim();
-    if (!trimmedReason || !trimmedActor) {
-      setFormError("Decision reason and resolved by are required.");
-      return;
-    }
-    void run("Resolve suggestion", () =>
-      api.resolveCaseSuggestion(currentSuggestion.suggestion_id, { decision, decision_reason: trimmedReason, resolved_by: trimmedActor }),
-    );
-  }
-
-  function promote() {
-    const trimmedActor = actor.trim();
-    const trimmedTitle = caseTitle.trim();
-    const trimmedCaseType = caseType.trim();
-    if (!trimmedActor || !trimmedTitle || !trimmedCaseType) {
-      setFormError("Resolved by, title and case type are required before promotion.");
-      return;
-    }
-    void run("Promote to case", () =>
-      api.promoteCaseSuggestion(currentSuggestion.suggestion_id, {
-        resolved_by: trimmedActor,
-        case_type: trimmedCaseType,
-        title: trimmedTitle,
-        priority,
-        severity,
-        case_payload: { created_from: "vigilante-web" },
-      }),
-    );
-  }
-
-  return (
-    <QueueActionPanel
-      title="Suggestion detail"
-      subtitle={`${shortId(suggestion.suggestion_id)} · acting as ${defaultActor}`}
-      status={<StatusBadge value={suggestion.status} tone={statusTone(suggestion.status)} />}
-    >
-      <div className="mt-4 grid gap-3">
-        <KeyValue label="Type" value={suggestion.suggestion_type} />
-        <KeyValue label="Evidence" value={suggestion.evidence_count} />
-        <KeyValue label="Organization" value={shortId(suggestion.organization_id)} />
-        <KeyValue label="Site" value={shortId(suggestion.site_id)} />
-        <KeyValue label="Reason" value={suggestion.reason_summary} />
-        {suggestion.promoted_case_id ? (
-          <KeyValue
-            label="Promoted case"
-            value={
-              <Link className="text-teal-800 underline-offset-2 hover:underline" to={`/cases/${suggestion.promoted_case_id}`} state={{ returnTo }}>
-                {shortId(suggestion.promoted_case_id)}
-              </Link>
-            }
-          />
-        ) : null}
-      </div>
-
-      <form className="mt-5 space-y-3 border-t border-zinc-200 pt-4" onSubmit={resolve}>
-        <Feedback error={formError ?? error} success={success} />
-        <FormField label="Decision">
-          <select className="field" value={decision} onChange={(event) => setDecision(event.target.value as typeof decision)}>
-            <option value="accepted">accepted</option>
-            <option value="rejected">rejected</option>
-            <option value="deferred">deferred</option>
-          </select>
-        </FormField>
-        <FormField label="Decision reason">
-          <input className="field" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="sufficient evidence" />
-        </FormField>
-        <FormField label="Resolved by">
-          <input className="field" value={actor} onChange={(event) => setActor(event.target.value)} placeholder={defaultActor} />
-        </FormField>
-        <button className="btn btn-primary w-full" type="submit" disabled={busy !== null || !reason.trim() || !actor.trim()}>
-          {busy === "Resolve suggestion" ? "Resolving..." : "Resolve suggestion"}
-        </button>
-      </form>
-
-      <div className="mt-5 space-y-3 border-t border-zinc-200 pt-4">
-        <FormField label="Case title">
-          <input className="field" value={caseTitle} onChange={(event) => setCaseTitle(event.target.value)} placeholder="Case title" />
-        </FormField>
-        <FormField label="Case type">
-          <input className="field" value={caseType} onChange={(event) => setCaseType(event.target.value)} placeholder="case_type" />
-        </FormField>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-          <FormField label="Priority">
-            <select className="field" value={priority} onChange={(event) => setPriority(event.target.value)}>
-              <option value="critical">critical</option>
-              <option value="high">high</option>
-              <option value="medium">medium</option>
-              <option value="low">low</option>
-            </select>
-          </FormField>
-          <FormField label="Severity">
-            <select className="field" value={severity} onChange={(event) => setSeverity(event.target.value)}>
-              <option value="critical">critical</option>
-              <option value="high">high</option>
-              <option value="medium">medium</option>
-              <option value="low">low</option>
-            </select>
-          </FormField>
-        </div>
-        <button className="btn w-full" type="button" disabled={busy !== null || !caseTitle.trim() || !caseType.trim() || !actor.trim()} onClick={promote}>
-          {busy === "Promote to case" ? "Promoting..." : "Promote to case"}
-        </button>
-      </div>
-    </QueueActionPanel>
   );
 }

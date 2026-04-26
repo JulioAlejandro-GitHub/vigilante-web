@@ -1,0 +1,205 @@
+import { FormEvent, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+
+import { EvidenceSummary } from "../evidence/EvidenceSummary";
+import { Feedback } from "../Feedback";
+import { FormField } from "../forms/FormField";
+import { KeyValue } from "../KeyValue";
+import { QueueActionPanel } from "../queues/QueueActionPanel";
+import { StatusBadge, statusTone } from "../StatusBadge";
+import { useCurrentUser } from "../../hooks/useCurrentUser";
+import { api } from "../../api/vigilanteApi";
+import type { CaseSuggestion } from "../../types/api";
+import { asErrorMessage, formatDateTime, shortId } from "../../utils/format";
+
+interface SuggestionDetailPanelProps {
+  suggestion: CaseSuggestion | null;
+  returnTo: string;
+  onChanged: () => void;
+}
+
+function suggestedTitle(suggestion: CaseSuggestion | null) {
+  const value = suggestion?.payload?.suggested_title;
+  return typeof value === "string" && value.trim() ? value : "Recurring unidentified subject";
+}
+
+function payloadString(payload: Record<string, unknown>, key: string, fallback: string) {
+  const value = payload[key];
+  return typeof value === "string" && value.trim() ? value : fallback;
+}
+
+export function SuggestionDetailPanel({ suggestion, returnTo, onChanged }: SuggestionDetailPanelProps) {
+  const { currentUser, can } = useCurrentUser();
+  const [decision, setDecision] = useState<"accepted" | "rejected" | "deferred">("accepted");
+  const [reason, setReason] = useState("sufficient evidence for case creation");
+  const [actor, setActor] = useState(currentUser.username);
+  const [caseTitle, setCaseTitle] = useState(suggestedTitle(suggestion));
+  const [caseType, setCaseType] = useState("unresolved_subject_case");
+  const [priority, setPriority] = useState("medium");
+  const [severity, setSeverity] = useState("medium");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCaseTitle(suggestedTitle(suggestion));
+    if (suggestion) {
+      setReason(payloadString(suggestion.payload, "suggested_reason", "sufficient evidence for case creation"));
+      setPriority(payloadString(suggestion.payload, "suggested_priority", "medium"));
+      setSeverity(payloadString(suggestion.payload, "suggested_severity", "medium"));
+    }
+    setFormError(null);
+    setError(null);
+    setSuccess(null);
+  }, [suggestion?.suggestion_id]);
+
+  useEffect(() => {
+    setActor(currentUser.username);
+  }, [currentUser.username]);
+
+  if (!suggestion) {
+    return <div className="rounded border border-dashed border-zinc-300 bg-white p-4 text-sm text-zinc-600">Select a case suggestion.</div>;
+  }
+  const currentSuggestion = suggestion;
+
+  async function run(label: string, action: () => Promise<unknown>) {
+    if (busy) return;
+
+    setBusy(label);
+    setFormError(null);
+    setError(null);
+    setSuccess(null);
+    try {
+      await action();
+      setSuccess(`${label} completed`);
+      onChanged();
+    } catch (caught) {
+      setError(asErrorMessage(caught));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function resolve(event: FormEvent) {
+    event.preventDefault();
+    const trimmedReason = reason.trim();
+    const trimmedActor = actor.trim();
+    if (!trimmedReason || !trimmedActor) {
+      setFormError("Decision reason and resolved by are required.");
+      return;
+    }
+    void run("Resolve suggestion", () =>
+      api.resolveCaseSuggestion(currentSuggestion.suggestion_id, { decision, decision_reason: trimmedReason, resolved_by: trimmedActor }),
+    );
+  }
+
+  function promote() {
+    const trimmedActor = actor.trim();
+    const trimmedTitle = caseTitle.trim();
+    const trimmedCaseType = caseType.trim();
+    if (!trimmedActor || !trimmedTitle || !trimmedCaseType) {
+      setFormError("Resolved by, title and case type are required before promotion.");
+      return;
+    }
+    void run("Promote to case", () =>
+      api.promoteCaseSuggestion(currentSuggestion.suggestion_id, {
+        resolved_by: trimmedActor,
+        case_type: trimmedCaseType,
+        title: trimmedTitle,
+        priority,
+        severity,
+        case_payload: { created_from: "vigilante-web" },
+      }),
+    );
+  }
+
+  return (
+    <QueueActionPanel
+      title="Suggestion detail"
+      subtitle={`${shortId(suggestion.suggestion_id)} · acting as ${currentUser.username}`}
+      status={<StatusBadge value={suggestion.status} tone={statusTone(suggestion.status)} />}
+    >
+      <div className="grid gap-3">
+        <KeyValue label="Type" value={suggestion.suggestion_type} />
+        <KeyValue label="Evidence" value={suggestion.evidence_count} />
+        <KeyValue label="Subject" value={shortId(suggestion.subject_id)} />
+        <KeyValue label="Track" value={shortId(suggestion.track_id)} />
+        <KeyValue label="Camera" value={shortId(suggestion.camera_id)} />
+        <KeyValue label="Organization" value={shortId(suggestion.organization_id)} />
+        <KeyValue label="Site" value={shortId(suggestion.site_id)} />
+        <KeyValue label="Event time" value={formatDateTime(suggestion.event_ts)} />
+        <KeyValue label="Reason" value={suggestion.reason_summary} />
+        {suggestion.promoted_case_id ? (
+          <KeyValue
+            label="Promoted case"
+            value={
+              <Link className="text-teal-800 underline-offset-2 hover:underline" to={`/cases/${suggestion.promoted_case_id}`} state={{ returnTo }}>
+                {shortId(suggestion.promoted_case_id)}
+              </Link>
+            }
+          />
+        ) : null}
+      </div>
+
+      <div className="mt-5 border-t border-zinc-200 pt-4">
+        <EvidenceSummary payload={suggestion.payload} />
+      </div>
+
+      <form className="mt-5 space-y-3 border-t border-zinc-200 pt-4" onSubmit={resolve}>
+        <Feedback error={formError ?? error} success={success} />
+        <FormField label="Decision">
+          <select className="field" value={decision} onChange={(event) => setDecision(event.target.value as typeof decision)}>
+            <option value="accepted">accepted</option>
+            <option value="rejected">rejected</option>
+            <option value="deferred">deferred</option>
+          </select>
+        </FormField>
+        <FormField label="Decision reason">
+          <input className="field" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="sufficient evidence" />
+        </FormField>
+        <FormField label="Resolved by">
+          <input className="field" value={actor} onChange={(event) => setActor(event.target.value)} placeholder={currentUser.username} />
+        </FormField>
+        <button className="btn btn-primary w-full" type="submit" disabled={busy !== null || !reason.trim() || !actor.trim() || !can("queue:resolve")}>
+          {busy === "Resolve suggestion" ? "Resolving..." : "Resolve suggestion"}
+        </button>
+      </form>
+
+      <div className="mt-5 space-y-3 border-t border-zinc-200 pt-4">
+        <FormField label="Case title">
+          <input className="field" value={caseTitle} onChange={(event) => setCaseTitle(event.target.value)} placeholder="Case title" />
+        </FormField>
+        <FormField label="Case type">
+          <input className="field" value={caseType} onChange={(event) => setCaseType(event.target.value)} placeholder="case_type" />
+        </FormField>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+          <FormField label="Priority">
+            <select className="field" value={priority} onChange={(event) => setPriority(event.target.value)}>
+              <option value="critical">critical</option>
+              <option value="high">high</option>
+              <option value="medium">medium</option>
+              <option value="low">low</option>
+            </select>
+          </FormField>
+          <FormField label="Severity">
+            <select className="field" value={severity} onChange={(event) => setSeverity(event.target.value)}>
+              <option value="critical">critical</option>
+              <option value="high">high</option>
+              <option value="medium">medium</option>
+              <option value="low">low</option>
+            </select>
+          </FormField>
+        </div>
+        <button
+          className="btn w-full"
+          type="button"
+          disabled={busy !== null || !caseTitle.trim() || !caseType.trim() || !actor.trim() || !can("suggestion:promote")}
+          onClick={promote}
+        >
+          {busy === "Promote to case" ? "Promoting..." : "Promote to case"}
+        </button>
+      </div>
+    </QueueActionPanel>
+  );
+}

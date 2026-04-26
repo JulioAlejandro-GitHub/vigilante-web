@@ -24,6 +24,8 @@ Valor esperado para desarrollo local:
 ```bash
 VITE_API_BASE_URL=http://127.0.0.1:8000
 VITE_DEFAULT_USER=julio
+VITE_DEFAULT_ORGANIZATION_ID=
+VITE_DEFAULT_SITE_ID=
 ```
 
 En modo dev, Vite reenvía `/api/*` y `/health` a `VITE_API_BASE_URL`.
@@ -69,7 +71,7 @@ npm run build
 - `/case-suggestions`
 - `/timeline`
 
-## Slice 3
+## Slice 4
 
 ### Navegación
 
@@ -84,7 +86,9 @@ La app usa `CurrentUserProvider` para mantener un usuario actual local:
 
 - default desde `VITE_DEFAULT_USER`
 - persistencia en `localStorage`
-- selector simple en header/drawer
+- selector en header/drawer
+- perfil mock con `name`, `role`, `organization_id` y `site_id`
+- roles mock `analyst` y `supervisor`
 
 Ese usuario se usa como default en:
 
@@ -94,6 +98,15 @@ Ese usuario se usa como default en:
 - resolución de manual reviews
 - resolución/promoción de case suggestions
 - links de "My cases"
+
+### RBAC visual mock
+
+La UI expone una capa visual de permisos sin seguridad real de backend:
+
+- `analyst`: acciones operativas normales y bulk actions básicas
+- `supervisor`: misma operación y señales administrativas adicionales en dashboard
+
+Esta capa prepara la app para auth/RBAC real sin introducir tokens ni sesiones reales.
 
 ### Filtros persistentes
 
@@ -137,6 +150,12 @@ El estado visual de ownership se muestra como:
 - assigned to someone else
 - unassigned
 
+La lista soporta selección múltiple y bulk actions cliente-side:
+
+- assign to me
+- unassign
+- change status
+
 ### Case detail
 
 Consume:
@@ -168,6 +187,16 @@ Consume:
 
 Soporta filtros por URL, listado responsive, detalle lateral y campos condicionales para `identity_conflict`.
 El panel de resolución usa el usuario actual como default en `resolved_by`.
+El detalle muestra contexto operativo enriquecido:
+
+- subject, track, camera
+- severity/priority
+- organization/site
+- reason summary
+- resumen de evidencia técnica
+- payload técnico expandible
+
+La cola soporta selección múltiple y bulk approve secuencial.
 
 ### Case suggestions
 
@@ -180,6 +209,30 @@ Consume:
 
 Incluye filtros por URL, detalle lateral, resolución y promoción con campos mínimos editables.
 El panel de acción usa el usuario actual como default en `resolved_by` y conserva retorno contextual al caso promovido.
+El detalle muestra contexto enriquecido:
+
+- suggestion type
+- evidence count
+- subject, track, camera
+- organization/site
+- suggested title/reason/priority/severity si viene en payload
+- resumen de evidencia técnica
+- payload técnico expandible
+
+La cola soporta selección múltiple y bulk accept/defer/reject secuencial.
+
+### Evidencia técnica
+
+`EvidenceSummary` resume campos conocidos cuando están disponibles:
+
+- `face_detection`
+- `semantic_descriptor`
+- `match_confidence`
+- `generation_trace`
+- `recurrent_subject_assessment`
+- `source_event`
+
+El JSON completo queda detrás de un bloque expandible para evitar ruido visual.
 
 ### Timeline
 
@@ -197,10 +250,11 @@ Los links a caso preservan retorno contextual con la URL filtrada del timeline.
 ## Pendientes
 
 - auth real
-- RBAC
+- RBAC real desde servidor
 - CORS/configuración productiva en API
 - usuario actual desde sesión
 - vistas dedicadas para media/evidencia
 - realtime con SSE/websocket
 - validación más específica por tipo de review/suggestion
 - edición avanzada de casos
+- auditoría visual de bulk actions con historial propio

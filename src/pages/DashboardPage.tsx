@@ -5,7 +5,8 @@ import { api } from "../api/vigilanteApi";
 import { DataState } from "../components/DataState";
 import { WorkQueueCard } from "../components/dashboard/WorkQueueCard";
 import { PageHeader } from "../components/PageHeader";
-import { useCurrentUser } from "../context/CurrentUserContext";
+import { RoleBadge } from "../components/session/RoleBadge";
+import { CurrentUser, useCurrentUser } from "../context/CurrentUserContext";
 import { useAsyncData } from "../hooks/useAsyncData";
 import type { DashboardSummary } from "../types/api";
 
@@ -26,15 +27,35 @@ export function DashboardPage() {
         }
       />
       <DataState loading={loading} error={error} onRetry={refresh}>
-        {data ? <DashboardContent summary={data} currentUsername={currentUser.username} /> : null}
+        {data ? <DashboardContent summary={data} currentUser={currentUser} /> : null}
       </DataState>
     </div>
   );
 }
 
-function DashboardContent({ summary, currentUsername }: { summary: DashboardSummary; currentUsername: string }) {
+function DashboardContent({ summary, currentUser }: { summary: DashboardSummary; currentUser: CurrentUser }) {
+  const currentUsername = currentUser.username;
+
   return (
     <div className="space-y-6">
+      <section className="panel p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-zinc-950">{currentUser.name}</h2>
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-500">
+              <span>Org {currentUser.organization_id ?? "any"}</span>
+              <span>Site {currentUser.site_id ?? "any"}</span>
+            </div>
+          </div>
+          <RoleBadge role={currentUser.role} />
+        </div>
+        {currentUser.role === "supervisor" ? (
+          <div className="mt-3 rounded border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900">
+            Supervisor mock view: bulk actions and cross-queue visibility are emphasized in this session.
+          </div>
+        ) : null}
+      </section>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <WorkQueueCard
           label="My cases"
