@@ -176,7 +176,12 @@ function CaseDetailContent({
           ) : null}
 
           {activeTab === "evidence" ? (
-            <EvidenceWorkspace payload={detail.case_payload ?? {}} sourceEventId={detail.source_event_id} title="Case evidence and source context" />
+            <EvidenceWorkspace
+              payload={detail.case_payload ?? {}}
+              evidenceMedia={detail.evidence_media}
+              sourceEventId={detail.source_event_id}
+              title="Case evidence and source context"
+            />
           ) : null}
         </div>
 

@@ -62,7 +62,12 @@ export function ManualReviewDetailPage() {
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
               <div className="space-y-6">
-                <EvidenceWorkspace payload={review.payload} sourceEventId={review.source_event_id} title="Review evidence workspace" />
+                <EvidenceWorkspace
+                  payload={review.payload}
+                  evidenceMedia={review.evidence_media}
+                  sourceEventId={review.source_event_id}
+                  title="Review evidence workspace"
+                />
                 <RelatedLinksPanel
                   links={[
                     relatedCaseId

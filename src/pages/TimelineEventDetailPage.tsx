@@ -61,7 +61,12 @@ export function TimelineEventDetailPage() {
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
               <div className="space-y-6">
-                <EvidenceWorkspace payload={event.payload} sourceEventId={event.source_event_id} title="Timeline evidence workspace" />
+                <EvidenceWorkspace
+                  payload={event.payload}
+                  evidenceMedia={event.evidence_media}
+                  sourceEventId={event.source_event_id}
+                  title="Timeline evidence workspace"
+                />
                 <RelatedLinksPanel
                   links={[
                     event.case_id ? { label: "Case", value: shortId(event.case_id), to: navigation.caseHref(event.case_id), tone: "case" } : null,

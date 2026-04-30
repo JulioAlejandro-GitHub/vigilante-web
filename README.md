@@ -29,12 +29,23 @@ En modo dev, Vite reenvía `/api/*` y `/health` a `VITE_API_BASE_URL`.
 
 ## Requisitos
 
-Antes de usar la web, levantar `vigilante-api`:
+Antes de usar la web, levantar `vigilante-api`. Para evidencia visual real, levantar también `vigilante-media` y exponerlo al API:
+
+```bash
+cd ../vigilante-media
+source .venv/bin/activate
+MEDIA_LOCAL_ROOTS=storage,../vigilante-ingestion/storage,../vigilante-recognition \
+PYTHONPATH=. uvicorn app.main:app --host 127.0.0.1 --port 8100
+```
+
+En otra terminal:
 
 ```bash
 cd ../vigilante-api
 source .venv/bin/activate
-uvicorn app.main:app --host 127.0.0.1 --port 8000
+MEDIA_SERVICE_BASE_URL=http://127.0.0.1:8100 \
+MEDIA_SERVICE_PUBLIC_BASE_URL=http://127.0.0.1:8100 \
+PYTHONPATH=. uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 Para login local, sembrar los usuarios demo del backend si todavía no existen:
@@ -71,7 +82,15 @@ http://127.0.0.1:5173
 ```bash
 npm run test
 npm run build
+npm run dev
 ```
+
+Validación visual esperada con media local:
+
+- abrir un caso, manual review, case suggestion o timeline event con `evidence_media`;
+- ver preview de imagen en el panel `Visual evidence`;
+- abrir el viewer ampliado con metadata;
+- confirmar fallback textual cuando solo existan `evidence_refs` o cuando la imagen falle.
 
 ## Rutas
 
@@ -114,6 +133,16 @@ Manejo de errores auth:
 - `401`: se considera sesión inválida/expirada, se limpia el token local y las rutas privadas vuelven a `/login`.
 - `403`: se muestra como acceso denegado o como acción deshabilitada cuando el rol/scope real no permite operar.
 - login fallido: muestra error visible sin crear sesión local.
+
+## Evidencia visual real
+
+La web consume la evidencia enriquecida que entrega `vigilante-api` en `evidence_media` para casos, manual reviews, case suggestions y timeline events.
+
+- Usa `content_url` tal como viene del backend para renderizar la imagen.
+- No se conecta directo a MinIO/S3 ni expone credenciales de storage.
+- Mantiene `evidence_refs` como fallback textual cuando no hay media resuelta.
+- Si la URL de imagen falla, muestra placeholder y conserva la evidencia técnica/payload.
+- El viewer ampliado muestra imagen real y metadata básica como `content_type`, dimensiones, `media_id`, ref, cámara y `captured_at` cuando están disponibles.
 
 ## Slice 7
 

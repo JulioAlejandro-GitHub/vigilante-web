@@ -1,4 +1,30 @@
-import type { CaseSuggestion, ManualReview, TimelineEvent } from "../types/api";
+import type { CaseSuggestion, EvidenceMediaItem, ManualReview, TimelineEvent } from "../types/api";
+
+export function evidenceMediaFixture(patch: Partial<EvidenceMediaItem> = {}): EvidenceMediaItem {
+  return {
+    ref: "s3://vigilante-frames/camera-1/frame-001.jpg",
+    resolved: true,
+    media_id: "media-frame-001",
+    media_type: "frame",
+    storage_backend: "s3",
+    bucket: "vigilante-frames",
+    object_key: "camera-1/frame-001.jpg",
+    content_type: "image/jpeg",
+    size_bytes: 245760,
+    width: 1280,
+    height: 720,
+    captured_at: "2026-01-01T10:00:00Z",
+    last_modified_at: "2026-01-01T10:01:00Z",
+    camera_id: "camera-1",
+    checksum_sha256: "abc123",
+    etag: "etag-1",
+    content_url: "/api/v1/media/media-frame-001/content",
+    metadata_url: "/api/v1/media/media-frame-001",
+    metadata: { width: 1280, height: 720 },
+    error: null,
+    ...patch,
+  };
+}
 
 export function manualReviewFixture(patch: Partial<ManualReview> = {}): ManualReview {
   return {
@@ -19,6 +45,7 @@ export function manualReviewFixture(patch: Partial<ManualReview> = {}): ManualRe
     payload: {
       case_id: "case-1",
       confidence: 0.91,
+      evidence_refs: ["s3://vigilante-frames/camera-1/frame-001.jpg"],
       face_detection: { status: "detected", confidence: 0.91 },
       semantic_descriptor: { summary: "person near restricted door" },
     },
@@ -28,6 +55,7 @@ export function manualReviewFixture(patch: Partial<ManualReview> = {}): ManualRe
     resolved_at: null,
     resolution_payload: {},
     resolution_event_id: null,
+    evidence_media: [evidenceMediaFixture()],
     ...patch,
   };
 }
@@ -51,6 +79,7 @@ export function caseSuggestionFixture(patch: Partial<CaseSuggestion> = {}): Case
       suggested_title: "Repeated unresolved subject",
       suggested_reason: "Repeated unresolved subject",
       evidence_count: 3,
+      evidence_refs: ["s3://vigilante-frames/camera-1/frame-001.jpg"],
       recurrent_subject_assessment: { summary: "three sightings" },
     },
     decision: null,
@@ -61,6 +90,7 @@ export function caseSuggestionFixture(patch: Partial<CaseSuggestion> = {}): Case
     resolution_event_id: null,
     promoted_case_id: "case-1",
     promoted_at: null,
+    evidence_media: [evidenceMediaFixture({ media_id: "media-suggestion-001" })],
     ...patch,
   };
 }
@@ -81,11 +111,13 @@ export function timelineEventFixture(patch: Partial<TimelineEvent> = {}): Timeli
       suggestion_id: "suggestion-1",
       review_id: "review-1",
       confidence: 0.91,
+      evidence_refs: ["s3://vigilante-frames/camera-1/frame-001.jpg"],
       source_event: { source_event_id: "event-1", event_type: "recognition" },
     },
     source_component: "vigilante-api",
     organization_id: "org-1",
     site_id: "site-1",
+    evidence_media: [evidenceMediaFixture({ media_id: "media-timeline-001" })],
     ...patch,
   };
 }

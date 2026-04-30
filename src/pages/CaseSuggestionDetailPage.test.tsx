@@ -27,6 +27,8 @@ describe("CaseSuggestionDetailPage", () => {
     expect(await screen.findByText("Case suggestion")).toBeInTheDocument();
     expect(screen.getAllByText("unresolved_subject_case").length).toBeGreaterThan(0);
     expect(screen.getByText("Suggestion evidence workspace")).toBeInTheDocument();
+    expect(screen.getByText("Visual evidence")).toBeInTheDocument();
+    expect(screen.getByAltText(/Evidence preview/i)).toHaveAttribute("src", "/api/v1/media/media-frame-001/content");
     expect(screen.getByRole("link", { name: /Back to context/i })).toHaveAttribute("href", "/case-suggestions?status=pending");
     expect(screen.getByRole("link", { name: /Related case/i })).toHaveAttribute("href", expect.stringContaining("/cases/case-1"));
   });

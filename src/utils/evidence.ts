@@ -1,5 +1,6 @@
 import { formatDateTime } from "./format";
 import type { ReactNode } from "react";
+import type { EvidenceMediaItem } from "../types/api";
 
 export interface MetadataRow {
   label: string;
@@ -123,4 +124,201 @@ export function sourceEventMetadata(value: unknown): MetadataRow[] {
   });
 
   return rows;
+}
+
+const EVIDENCE_REF_KEYS = new Set([
+  "evidence_ref",
+  "evidence_refs",
+  "frame_ref",
+  "frame_refs",
+  "frame_uri",
+  "frame_uris",
+  "image_ref",
+  "image_refs",
+  "image_uri",
+  "image_uris",
+  "media_ref",
+  "media_refs",
+  "media_uri",
+  "media_uris",
+]);
+
+const EVIDENCE_MEDIA_KEYS = new Set(["evidence_media", "evidenceMedia", "resolved_media", "resolvedMedia"]);
+
+export function extractEvidenceRefs(payloads: Array<Record<string, unknown> | null | undefined>, maxRefs = 20): string[] {
+  const refs: string[] = [];
+
+  for (const payload of payloads) {
+    if (!payload) {
+      continue;
+    }
+    collectEvidenceRefs(payload, refs, maxRefs);
+    if (refs.length >= maxRefs) {
+      break;
+    }
+  }
+
+  return dedupeStrings(refs).slice(0, maxRefs);
+}
+
+export function extractEvidenceMedia(value: unknown, maxItems = 20): EvidenceMediaItem[] {
+  const items: EvidenceMediaItem[] = [];
+  collectEvidenceMedia(value, items, maxItems);
+  return dedupeEvidenceMedia(items).slice(0, maxItems);
+}
+
+export function dedupeEvidenceMedia(items: EvidenceMediaItem[]): EvidenceMediaItem[] {
+  const seen = new Set<string>();
+  const deduped: EvidenceMediaItem[] = [];
+
+  for (const item of items) {
+    const key = [item.media_id, item.content_url, item.proxy_url, item.ref].find((value) => typeof value === "string" && value.trim());
+    if (!key) {
+      continue;
+    }
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    deduped.push(item);
+  }
+
+  return deduped;
+}
+
+function collectEvidenceRefs(value: unknown, refs: string[], maxRefs: number) {
+  if (refs.length >= maxRefs) {
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const nested of value) {
+      collectEvidenceRefs(nested, refs, maxRefs);
+      if (refs.length >= maxRefs) {
+        return;
+      }
+    }
+    return;
+  }
+
+  if (!isRecord(value)) {
+    return;
+  }
+
+  Object.entries(value).forEach(([key, nested]) => {
+    if (refs.length >= maxRefs) {
+      return;
+    }
+    if (EVIDENCE_REF_KEYS.has(key.toLowerCase())) {
+      appendEvidenceRefValues(nested, refs, maxRefs);
+    }
+    collectEvidenceRefs(nested, refs, maxRefs);
+  });
+}
+
+function appendEvidenceRefValues(value: unknown, refs: string[], maxRefs: number) {
+  if (refs.length >= maxRefs) {
+    return;
+  }
+
+  if (typeof value === "string") {
+    const ref = value.trim();
+    if (ref && ref.length <= 4096 && !Array.from(ref).some((char) => char.charCodeAt(0) < 32)) {
+      refs.push(ref);
+    }
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const nested of value) {
+      appendEvidenceRefValues(nested, refs, maxRefs);
+      if (refs.length >= maxRefs) {
+        return;
+      }
+    }
+    return;
+  }
+
+  if (!isRecord(value)) {
+    return;
+  }
+
+  Object.values(value).forEach((nested) => appendEvidenceRefValues(nested, refs, maxRefs));
+}
+
+function collectEvidenceMedia(value: unknown, items: EvidenceMediaItem[], maxItems: number) {
+  if (items.length >= maxItems) {
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((nested) => {
+      const item = toEvidenceMediaItem(nested);
+      if (item) {
+        items.push(item);
+      }
+    });
+    return;
+  }
+
+  if (!isRecord(value)) {
+    return;
+  }
+
+  Object.entries(value).forEach(([key, nested]) => {
+    if (items.length >= maxItems) {
+      return;
+    }
+    if (EVIDENCE_MEDIA_KEYS.has(key)) {
+      collectEvidenceMedia(nested, items, maxItems);
+    }
+  });
+}
+
+function toEvidenceMediaItem(value: unknown): EvidenceMediaItem | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const ref = firstString(value.ref, value.source_ref, value.evidence_ref, value.media_ref) ?? "";
+  const mediaId = firstString(value.media_id, value.mediaId);
+  const contentUrl = firstString(value.content_url, value.contentUrl);
+  const proxyUrl = firstString(value.proxy_url, value.proxyUrl);
+  const error = firstString(value.error, value.reason);
+
+  if (!ref && !mediaId && !contentUrl && !proxyUrl && !error) {
+    return null;
+  }
+
+  return {
+    ...value,
+    ref,
+    media_id: mediaId ?? null,
+    content_url: contentUrl ?? null,
+    proxy_url: proxyUrl ?? null,
+    metadata: asRecord(value.metadata) ?? {},
+    error: error ?? null,
+  };
+}
+
+function firstString(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function dedupeStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  const deduped: string[] = [];
+  values.forEach((value) => {
+    if (seen.has(value)) {
+      return;
+    }
+    seen.add(value);
+    deduped.push(value);
+  });
+  return deduped;
 }

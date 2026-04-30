@@ -64,7 +64,12 @@ export function CaseSuggestionDetailPage() {
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
               <div className="space-y-6">
-                <EvidenceWorkspace payload={suggestion.payload} sourceEventId={suggestion.source_event_id} title="Suggestion evidence workspace" />
+                <EvidenceWorkspace
+                  payload={suggestion.payload}
+                  evidenceMedia={suggestion.evidence_media}
+                  sourceEventId={suggestion.source_event_id}
+                  title="Suggestion evidence workspace"
+                />
                 <RelatedLinksPanel
                   links={[
                     relatedCaseId

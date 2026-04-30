@@ -1,10 +1,10 @@
 import { FaceDetectionCard } from "./FaceDetectionCard";
-import { MediaPlaceholderPanel } from "./MediaPlaceholderPanel";
+import { EvidenceFallback } from "./EvidenceFallback";
 import { SemanticDescriptorCard } from "./SemanticDescriptorCard";
 import { SourceEventSummary } from "./SourceEventSummary";
 import { TechnicalMetadataGrid } from "./TechnicalMetadataGrid";
 import { TechnicalPayloadPanel } from "./TechnicalPayloadPanel";
-import { asRecord, evidenceHighlights, payloadValue, summarizeValue } from "../../utils/evidence";
+import { asRecord, evidenceHighlights, extractEvidenceRefs, payloadValue, summarizeValue } from "../../utils/evidence";
 
 interface EvidenceSectionProps {
   payload: Record<string, unknown>;
@@ -22,6 +22,7 @@ export function EvidenceSection({ payload, sourceEventId, title = "Evidence and 
   const generationTrace = payloadValue(payload, "generation_trace");
   const highlights = evidenceHighlights(payload);
   const hasPayload = payload && Object.keys(payload).length > 0;
+  const fallbackRefs = extractEvidenceRefs([payload]);
 
   if (!hasPayload) {
     return (
@@ -30,7 +31,7 @@ export function EvidenceSection({ payload, sourceEventId, title = "Evidence and 
         <p className="mt-2 text-sm text-zinc-600">No technical evidence payload is available for this item yet.</p>
         {showMediaSlot ? (
           <div className="mt-3">
-            <MediaPlaceholderPanel sourceEventId={sourceEventId} compact={compact} />
+            <EvidenceFallback fallbackRefs={fallbackRefs} sourceEventId={sourceEventId} compact={compact} />
           </div>
         ) : null}
       </section>
@@ -75,7 +76,7 @@ export function EvidenceSection({ payload, sourceEventId, title = "Evidence and 
       ) : null}
 
       <SourceEventSummary sourceEvent={sourceEvent} sourceEventId={sourceEventId} />
-      {showMediaSlot ? <MediaPlaceholderPanel sourceEventId={sourceEventId} compact={compact} /> : null}
+      {showMediaSlot ? <EvidenceFallback fallbackRefs={fallbackRefs} sourceEventId={sourceEventId} compact={compact} /> : null}
       <TechnicalPayloadPanel payload={payload} />
     </section>
   );

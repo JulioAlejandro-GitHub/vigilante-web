@@ -4,6 +4,7 @@ import { Route, Routes } from "react-router-dom";
 
 import { CaseDetailPage } from "./CaseDetailPage";
 import { renderWithAppProviders } from "../test/render";
+import { evidenceMediaFixture } from "../test/fixtures";
 import type { CaseDetail, TimelineEvent } from "../types/api";
 
 const detail: CaseDetail = {
@@ -30,9 +31,11 @@ const detail: CaseDetail = {
   site_id: "site-1",
   case_payload: {
     confidence: 0.91,
+    evidence_refs: ["s3://vigilante-frames/camera-1/frame-001.jpg"],
     face_detection: { status: "detected", confidence: 0.91 },
     semantic_descriptor: { summary: "person near restricted access" },
   },
+  evidence_media: [evidenceMediaFixture({ media_id: "media-case-001" })],
   notes: [],
   reviews: [],
   suggestions: [],
@@ -80,7 +83,7 @@ describe("CaseDetailPage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders case detail evidence with a future media viewer slot", async () => {
+  it("renders case detail evidence with real image media", async () => {
     renderWithAppProviders(
       <Routes>
         <Route path="/cases/:caseId" element={<CaseDetailPage />} />
@@ -90,7 +93,8 @@ describe("CaseDetailPage", () => {
 
     expect((await screen.findAllByText("Evidence rich case")).length).toBeGreaterThan(0);
     expect(screen.getByText("Case evidence and source context")).toBeInTheDocument();
-    expect(screen.getByText("Media evidence slot")).toBeInTheDocument();
+    expect(screen.getByText("Visual evidence")).toBeInTheDocument();
+    expect(screen.getByAltText(/Evidence preview/i)).toHaveAttribute("src", "/api/v1/media/media-frame-001/content");
     expect(screen.getByText("Face detection")).toBeInTheDocument();
     expect(screen.getAllByText("Org org-1").length).toBeGreaterThan(0);
   });

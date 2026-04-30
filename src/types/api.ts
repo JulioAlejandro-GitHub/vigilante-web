@@ -1,5 +1,30 @@
 export type Severity = "low" | "medium" | "high" | "critical" | string;
 
+export interface EvidenceMediaItem {
+  ref: string;
+  resolved?: boolean;
+  media_id?: string | null;
+  media_type?: string | null;
+  storage_backend?: string | null;
+  bucket?: string | null;
+  object_key?: string | null;
+  content_type?: string | null;
+  size_bytes?: number | null;
+  width?: number | null;
+  height?: number | null;
+  captured_at?: string | null;
+  last_modified_at?: string | null;
+  camera_id?: string | null;
+  checksum_sha256?: string | null;
+  etag?: string | null;
+  content_url?: string | null;
+  proxy_url?: string | null;
+  metadata_url?: string | null;
+  metadata?: Record<string, unknown>;
+  error?: string | null;
+  [key: string]: unknown;
+}
+
 export interface DashboardSummary {
   total_cases: number;
   open_cases: number;
@@ -34,6 +59,7 @@ export interface CaseRecord {
   organization_id: string | null;
   site_id: string | null;
   case_payload: Record<string, unknown>;
+  evidence_media?: EvidenceMediaItem[];
 }
 
 export interface CaseNote {
@@ -60,6 +86,7 @@ export interface TimelineEvent {
   source_component: string;
   organization_id: string | null;
   site_id: string | null;
+  evidence_media?: EvidenceMediaItem[];
 }
 
 export interface ManualReview {
@@ -84,6 +111,7 @@ export interface ManualReview {
   resolved_at: string | null;
   resolution_payload: Record<string, unknown>;
   resolution_event_id: string | null;
+  evidence_media?: EvidenceMediaItem[];
 }
 
 export interface CaseSuggestion {
@@ -109,6 +137,7 @@ export interface CaseSuggestion {
   resolution_event_id: string | null;
   promoted_case_id: string | null;
   promoted_at: string | null;
+  evidence_media?: EvidenceMediaItem[];
 }
 
 export interface CaseDetail extends CaseRecord {

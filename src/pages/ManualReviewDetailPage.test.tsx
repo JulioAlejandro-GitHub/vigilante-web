@@ -35,6 +35,8 @@ describe("ManualReviewDetailPage", () => {
     expect(await screen.findByText("Manual review")).toBeInTheDocument();
     expect(screen.getAllByText("identity_conflict").length).toBeGreaterThan(0);
     expect(screen.getByText("Review evidence workspace")).toBeInTheDocument();
+    expect(screen.getByText("Visual evidence")).toBeInTheDocument();
+    expect(screen.getByAltText(/Evidence preview/i)).toHaveAttribute("src", "/api/v1/media/media-frame-001/content");
     expect(screen.getByRole("link", { name: /Back to context/i })).toHaveAttribute("href", "/manual-reviews?status=pending");
     expect(screen.getAllByRole("link", { name: /event-1|Timeline event/i })[0]).toHaveAttribute("href", expect.stringContaining("/timeline/event-1"));
 

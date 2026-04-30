@@ -26,6 +26,8 @@ describe("TimelineEventDetailPage", () => {
 
     expect(await screen.findByText("Case suggestion created from recognition evidence")).toBeInTheDocument();
     expect(screen.getByText("Timeline evidence workspace")).toBeInTheDocument();
+    expect(screen.getByText("Visual evidence")).toBeInTheDocument();
+    expect(screen.getByAltText(/Evidence preview/i)).toHaveAttribute("src", "/api/v1/media/media-frame-001/content");
     expect(screen.getByText("Event metadata")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Back to context/i })).toHaveAttribute("href", "/timeline?event_group=technical");
     expect(screen.getAllByRole("link", { name: /Review/i })[0]).toHaveAttribute("href", expect.stringContaining("/manual-reviews/review-1"));
