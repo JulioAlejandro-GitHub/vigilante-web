@@ -1,4 +1,4 @@
-import { AlertTriangle, FileText, Image } from "lucide-react";
+import { AlertTriangle, FileText, Image, Video } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { EvidenceGallery } from "./EvidenceGallery";
@@ -22,6 +22,7 @@ export function EvidenceMediaPanel({
   const mediaItems = dedupeEvidenceMedia(evidenceMedia ?? []);
   const resolvedCount = mediaItems.filter((item) => item.resolved !== false && evidencePreviewUrl(item)).length;
   const unresolvedCount = mediaItems.filter((item) => item.resolved === false || item.error || !evidencePreviewUrl(item)).length;
+  const clipCount = mediaItems.filter((item) => item.resolved !== false && item.clip_available && item.clip_url).length;
   const refCount = fallbackRefs.length;
 
   return (
@@ -33,6 +34,9 @@ export function EvidenceMediaPanel({
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
           <EvidenceCount icon={<Image className="h-3.5 w-3.5" aria-hidden="true" />} label="images" value={resolvedCount} />
+          {clipCount > 0 ? (
+            <EvidenceCount icon={<Video className="h-3.5 w-3.5" aria-hidden="true" />} label={clipCount === 1 ? "clip" : "clips"} value={clipCount} />
+          ) : null}
           {unresolvedCount > 0 ? <EvidenceCount icon={<AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />} label="unresolved" value={unresolvedCount} /> : null}
           {refCount > 0 ? <EvidenceCount icon={<FileText className="h-3.5 w-3.5" aria-hidden="true" />} label="refs" value={refCount} /> : null}
         </div>

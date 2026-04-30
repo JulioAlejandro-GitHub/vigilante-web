@@ -103,6 +103,8 @@ describe("CaseDetailPage", () => {
     expect((await screen.findAllByText("Evidence rich case")).length).toBeGreaterThan(0);
     expect(screen.getByText("Case evidence and source context")).toBeInTheDocument();
     expect(screen.getByText("Visual evidence")).toBeInTheDocument();
+    expect(screen.getByText("Temporal clips")).toBeInTheDocument();
+    expect(screen.getAllByText("Clip available").length).toBeGreaterThan(0);
     expect(screen.getAllByAltText(/Evidence preview/i)[0]).toHaveAttribute("src", "/api/v1/media/media-frame-001/thumbnail");
     expect(screen.getByText("Face detection")).toBeInTheDocument();
     expect(screen.getAllByText("Org org-1").length).toBeGreaterThan(0);
@@ -116,5 +118,10 @@ describe("CaseDetailPage", () => {
 
     expect(screen.getAllByText("2 / 2").length).toBeGreaterThan(0);
     expect(screen.getByAltText(/Evidence image/i)).toHaveAttribute("src", "/api/v1/media/media-case-002/content");
+
+    fireEvent.click(screen.getByRole("button", { name: "Close viewer" }));
+    fireEvent.click(screen.getAllByRole("button", { name: /Open clip/i })[0]);
+
+    expect(screen.getByLabelText(/Evidence clip/i)).toHaveAttribute("src", "/api/v1/media/media-frame-001/clip/content");
   });
 });

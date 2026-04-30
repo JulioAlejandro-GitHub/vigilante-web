@@ -19,6 +19,7 @@ interface MetadataRow {
 export function EvidenceMetadataPanel({ item, compact = false }: EvidenceMetadataPanelProps) {
   const dimensions = item.width && item.height ? `${item.width} x ${item.height}` : null;
   const thumbnailDimensions = item.thumbnail_width && item.thumbnail_height ? `${item.thumbnail_width} x ${item.thumbnail_height}` : null;
+  const clipDimensions = item.clip_width && item.clip_height ? `${item.clip_width} x ${item.clip_height}` : null;
   const storage = [item.storage_backend, safeStorageValue(item.bucket)].filter(Boolean).join(" / ");
   const objectKey = safeStorageValue(item.object_key);
   const identityRows = [
@@ -34,12 +35,20 @@ export function EvidenceMetadataPanel({ item, compact = false }: EvidenceMetadat
     { label: "Thumbnail type", value: item.thumbnail_content_type },
     { label: "Thumbnail dimensions", value: thumbnailDimensions },
     { label: "Thumbnail status", value: item.thumbnail_status },
+    { label: "Clip type", value: item.clip_content_type },
+    { label: "Clip duration", value: formatSeconds(item.clip_duration_seconds) },
+    { label: "Clip frames", value: item.clip_frame_count },
+    { label: "Clip FPS", value: item.clip_fps },
+    { label: "Clip dimensions", value: clipDimensions },
   ];
   const resolutionRows = [
     { label: "Resolution", value: evidenceResolutionLabel(item) },
     { label: "Fallback", value: evidenceFallbackLabel(item) },
     { label: "Thumbnail available", value: formatBoolean(item.thumbnail_available) },
+    { label: "Clip available", value: formatBoolean(item.clip_available) },
+    { label: "Clip status", value: item.clip_status },
     { label: "Content URL", value: item.content_url ? "Available" : null },
+    { label: "Clip URL", value: item.clip_url ? "Available" : null },
     { label: "Proxy URL", value: item.proxy_url ? "Available" : null },
     { label: "Metadata URL", value: item.metadata_url ? "Available" : null },
     { label: "Storage", value: storage || null },
@@ -149,6 +158,13 @@ function formatBytes(value: number | null | undefined) {
   }
 
   return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+function formatSeconds(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return null;
+  }
+  return `${value.toFixed(value >= 10 ? 0 : 1)}s`;
 }
 
 function formatBoolean(value: boolean | null | undefined) {

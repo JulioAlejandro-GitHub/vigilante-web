@@ -49,6 +49,8 @@ describe("TimelineEventDetailPage", () => {
     expect(await screen.findByText("Case suggestion created from recognition evidence")).toBeInTheDocument();
     expect(screen.getByText("Timeline evidence workspace")).toBeInTheDocument();
     expect(screen.getByText("Visual evidence")).toBeInTheDocument();
+    expect(screen.getByText("Temporal clips")).toBeInTheDocument();
+    expect(screen.getAllByText("Clip available").length).toBeGreaterThan(0);
     expect(screen.getAllByAltText(/Evidence preview/i)[0]).toHaveAttribute("src", "/api/v1/media/media-frame-001/thumbnail");
     expect(screen.getByText("Event metadata")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Back to context/i })).toHaveAttribute("href", "/timeline?event_group=technical");
@@ -60,5 +62,10 @@ describe("TimelineEventDetailPage", () => {
     expect(screen.getByText("Visual metadata")).toBeInTheDocument();
     expect(screen.getAllByText("1 / 2").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "Next evidence" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close viewer" }));
+    fireEvent.click(screen.getAllByRole("button", { name: /Open clip/i })[0]);
+
+    expect(screen.getByLabelText(/Evidence clip/i)).toHaveAttribute("src", "/api/v1/media/media-frame-001/clip/content");
   });
 });

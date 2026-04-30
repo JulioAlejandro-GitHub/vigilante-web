@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Clock, Image, Maximize2 } from "lucide-react";
 
+import { EvidenceClipBadge } from "./EvidenceClipBadge";
 import type { EvidenceMediaItem } from "../../types/api";
 import { formatDateTime, shortId } from "../../utils/format";
 
@@ -86,6 +87,7 @@ export function EvidenceImageCard({ item, onOpen, index, total }: EvidenceImageC
               Thumbnail {item.thumbnail_status}
             </span>
           ) : null}
+          <EvidenceClipBadge item={item} />
         </div>
 
         {failed ? <p className="text-xs text-rose-700">The image URL failed to load. Technical evidence remains available below.</p> : null}

@@ -22,7 +22,7 @@ cp .env.example .env
 Valor esperado para desarrollo local:
 
 ```bash
-VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_API_BASE_URL=http://127.0.0.1:8001
 ```
 
 En modo dev, Vite reenvía `/api/*` y `/health` a `VITE_API_BASE_URL`.
@@ -35,7 +35,7 @@ Antes de usar la web, levantar `vigilante-api`. Para evidencia visual real, leva
 cd ../vigilante-media
 source .venv/bin/activate
 MEDIA_LOCAL_ROOTS=storage,../vigilante-ingestion/storage,../vigilante-recognition \
-PYTHONPATH=. uvicorn app.main:app --host 127.0.0.1 --port 8100
+PYTHONPATH=. uvicorn app.main:app --host 127.0.0.1 --port 8110
 ```
 
 En otra terminal:
@@ -43,9 +43,9 @@ En otra terminal:
 ```bash
 cd ../vigilante-api
 source .venv/bin/activate
-MEDIA_SERVICE_BASE_URL=http://127.0.0.1:8100 \
-MEDIA_SERVICE_PUBLIC_BASE_URL=http://127.0.0.1:8100 \
-PYTHONPATH=. uvicorn app.main:app --host 127.0.0.1 --port 8000
+MEDIA_SERVICE_BASE_URL=http://127.0.0.1:8110 \
+MEDIA_SERVICE_PUBLIC_BASE_URL=http://127.0.0.1:8110 \
+PYTHONPATH=. uvicorn app.main:app --host 127.0.0.1 --port 8001
 ```
 
 Para login local, sembrar los usuarios demo del backend si todavía no existen:
@@ -90,6 +90,8 @@ Validación visual esperada con media local:
 - abrir un caso, manual review, case suggestion o timeline event con `evidence_media`;
 - ver preview liviano usando `thumbnail_url` en el panel `Visual evidence`;
 - abrir el viewer ampliado con `content_url` original y metadata;
+- ver `Temporal clips` cuando `vigilante-api` expone `clip_available=true`;
+- reproducir el MP4 derivado con controles nativos del navegador;
 - confirmar fallback textual cuando solo existan `evidence_refs` o cuando la imagen falle.
 
 ## Rutas
@@ -141,6 +143,8 @@ La web consume la evidencia enriquecida que entrega `vigilante-api` en `evidence
 - Usa `thumbnail_url` para previews/cards/galerías cuando está disponible.
 - Usa `content_url` para el viewer ampliado, manteniendo la imagen original completa.
 - Si falta thumbnail, el preview cae a `content_url`; si también falta, cae al fallback técnico de `evidence_refs`.
+- Si `clip_available=true`, muestra badge de clip y un panel `Temporal clips` con reproductor HTML5 usando `clip_url`.
+- Si el clip no existe o falla al cargar, conserva el flujo de imagen con `content_url`/`thumbnail_url`.
 - No se conecta directo a MinIO/S3 ni expone credenciales de storage.
 - Mantiene `evidence_refs` como fallback textual cuando no hay media resuelta.
 - Si la URL de imagen falla, muestra placeholder y conserva la evidencia técnica/payload.

@@ -1,4 +1,5 @@
 import { EvidenceSection } from "./EvidenceSection";
+import { EvidenceClipPanel } from "./EvidenceClipPanel";
 import { EvidenceMediaPanel } from "./EvidenceMediaPanel";
 import { TechnicalMetadataGrid } from "./TechnicalMetadataGrid";
 import type { EvidenceMediaItem } from "../../types/api";
@@ -15,7 +16,7 @@ export function EvidenceWorkspace({ payload, evidenceMedia, sourceEventId, title
   const highlights = evidenceHighlights(payload);
   const fallbackRefs = extractEvidenceRefs([payload]);
   const mediaItems = dedupeEvidenceMedia([...(evidenceMedia ?? []), ...extractEvidenceMedia(payload)]);
-  const visualCount = mediaItems.filter((item) => item.resolved !== false && (item.thumbnail_url || item.content_url || item.proxy_url)).length;
+  const visualCount = mediaItems.filter((item) => item.resolved !== false && (item.thumbnail_url || item.content_url || item.clip_url || item.proxy_url)).length;
   const technicalCount = Object.keys(payload ?? {}).length;
 
   return (
@@ -38,6 +39,7 @@ export function EvidenceWorkspace({ payload, evidenceMedia, sourceEventId, title
       </div>
 
       <EvidenceMediaPanel evidenceMedia={mediaItems} fallbackRefs={fallbackRefs} sourceEventId={sourceEventId} />
+      <EvidenceClipPanel media={mediaItems} />
       <EvidenceSection payload={payload} sourceEventId={sourceEventId} title="Technical evidence" showMediaSlot={false} />
     </section>
   );

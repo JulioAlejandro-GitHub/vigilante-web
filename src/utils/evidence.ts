@@ -172,7 +172,7 @@ export function dedupeEvidenceMedia(items: EvidenceMediaItem[]): EvidenceMediaIt
   const deduped: EvidenceMediaItem[] = [];
 
   for (const item of items) {
-    const key = [item.media_id, item.thumbnail_url, item.content_url, item.proxy_url, item.ref].find(
+    const key = [item.media_id, item.thumbnail_url, item.content_url, item.clip_url, item.proxy_url, item.ref].find(
       (value) => typeof value === "string" && value.trim(),
     );
     if (!key) {
@@ -286,10 +286,11 @@ function toEvidenceMediaItem(value: unknown): EvidenceMediaItem | null {
   const mediaId = firstString(value.media_id, value.mediaId);
   const contentUrl = firstString(value.content_url, value.contentUrl);
   const thumbnailUrl = firstString(value.thumbnail_url, value.thumbnailUrl);
+  const clipUrl = firstString(value.clip_url, value.clipUrl);
   const proxyUrl = firstString(value.proxy_url, value.proxyUrl);
   const error = firstString(value.error, value.reason);
 
-  if (!ref && !mediaId && !contentUrl && !thumbnailUrl && !proxyUrl && !error) {
+  if (!ref && !mediaId && !contentUrl && !thumbnailUrl && !clipUrl && !proxyUrl && !error) {
     return null;
   }
 
@@ -304,6 +305,15 @@ function toEvidenceMediaItem(value: unknown): EvidenceMediaItem | null {
     thumbnail_height: firstNumber(value.thumbnail_height, value.thumbnailHeight),
     thumbnail_available: firstBoolean(value.thumbnail_available, value.thumbnailAvailable),
     thumbnail_status: firstString(value.thumbnail_status, value.thumbnailStatus) ?? null,
+    clip_available: firstBoolean(value.clip_available, value.clipAvailable),
+    clip_status: firstString(value.clip_status, value.clipStatus) ?? null,
+    clip_url: clipUrl ?? null,
+    clip_content_type: firstString(value.clip_content_type, value.clipContentType) ?? null,
+    clip_duration_seconds: firstNumber(value.clip_duration_seconds, value.clipDurationSeconds),
+    clip_frame_count: firstNumber(value.clip_frame_count, value.clipFrameCount),
+    clip_fps: firstNumber(value.clip_fps, value.clipFps),
+    clip_width: firstNumber(value.clip_width, value.clipWidth),
+    clip_height: firstNumber(value.clip_height, value.clipHeight),
     proxy_url: proxyUrl ?? null,
     metadata: asRecord(value.metadata) ?? {},
     error: error ?? null,

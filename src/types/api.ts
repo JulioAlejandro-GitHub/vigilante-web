@@ -24,6 +24,15 @@ export interface EvidenceMediaItem {
   thumbnail_height?: number | null;
   thumbnail_available?: boolean | null;
   thumbnail_status?: string | null;
+  clip_available?: boolean | null;
+  clip_status?: string | null;
+  clip_url?: string | null;
+  clip_content_type?: string | null;
+  clip_duration_seconds?: number | null;
+  clip_frame_count?: number | null;
+  clip_fps?: number | null;
+  clip_width?: number | null;
+  clip_height?: number | null;
   proxy_url?: string | null;
   metadata_url?: string | null;
   metadata?: Record<string, unknown>;
