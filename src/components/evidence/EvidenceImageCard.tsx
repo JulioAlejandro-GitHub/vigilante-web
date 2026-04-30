@@ -1,21 +1,24 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, Image, Maximize2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Image, Maximize2 } from "lucide-react";
 
 import type { EvidenceMediaItem } from "../../types/api";
 import { formatDateTime, shortId } from "../../utils/format";
 
 interface EvidenceImageCardProps {
   item: EvidenceMediaItem;
-  onOpen: (item: EvidenceMediaItem) => void;
+  onOpen: () => void;
+  index?: number;
+  total?: number;
 }
 
-export function EvidenceImageCard({ item, onOpen }: EvidenceImageCardProps) {
+export function EvidenceImageCard({ item, onOpen, index, total }: EvidenceImageCardProps) {
   const imageUrl = evidencePreviewUrl(item);
   const viewerUrl = evidenceOriginalImageUrl(item);
   const [status, setStatus] = useState<"loading" | "loaded" | "error">(imageUrl ? "loading" : "error");
   const title = evidenceTitle(item);
   const dimensions = item.width && item.height ? `${item.width} x ${item.height}` : null;
   const failed = status === "error";
+  const position = index !== undefined && total !== undefined ? `${index + 1} / ${total}` : null;
 
   useEffect(() => {
     setStatus(imageUrl ? "loading" : "error");
@@ -45,6 +48,7 @@ export function EvidenceImageCard({ item, onOpen }: EvidenceImageCardProps) {
         ) : null}
 
         <div className="absolute left-2 top-2 flex flex-wrap gap-1">
+          {position ? <span className="rounded bg-zinc-950/80 px-2 py-1 text-xs font-medium text-white shadow-sm">{position}</span> : null}
           {item.content_type ? (
             <span className="rounded bg-white/90 px-2 py-1 text-xs font-medium text-zinc-700 shadow-sm">{item.content_type}</span>
           ) : null}
@@ -65,10 +69,23 @@ export function EvidenceImageCard({ item, onOpen }: EvidenceImageCardProps) {
               {item.ref ? <div className="break-words">Ref: {item.ref}</div> : null}
             </div>
           </div>
-          <button className="btn shrink-0 px-2 py-1 text-xs" type="button" onClick={() => onOpen(item)} disabled={!viewerUrl}>
+          <button className="btn shrink-0 px-2 py-1 text-xs" type="button" onClick={onOpen} disabled={!viewerUrl}>
             <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" />
             Open
           </button>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 text-xs">
+          <span className="inline-flex items-center gap-1 rounded border border-zinc-200 bg-zinc-50 px-2 py-1 font-medium text-zinc-600">
+            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+            {evidenceResolutionLabel(item)}
+          </span>
+          {item.thumbnail_status ? (
+            <span className="inline-flex items-center gap-1 rounded border border-zinc-200 bg-zinc-50 px-2 py-1 font-medium text-zinc-600">
+              <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+              Thumbnail {item.thumbnail_status}
+            </span>
+          ) : null}
         </div>
 
         {failed ? <p className="text-xs text-rose-700">The image URL failed to load. Technical evidence remains available below.</p> : null}
@@ -91,4 +108,43 @@ export function evidenceImageUrl(item: EvidenceMediaItem) {
 
 export function evidenceTitle(item: EvidenceMediaItem) {
   return item.media_id ? shortId(item.media_id) : item.ref ? shortId(item.ref) : "media";
+}
+
+export function evidenceItemKey(item: EvidenceMediaItem) {
+  return item.media_id || item.thumbnail_url || item.content_url || item.proxy_url || item.ref;
+}
+
+export function evidenceResolutionLabel(item: EvidenceMediaItem) {
+  if (item.resolved === false) {
+    return "Unresolved";
+  }
+  if (item.error) {
+    return "Error";
+  }
+  if (item.content_url) {
+    return "Original ready";
+  }
+  if (item.proxy_url) {
+    return "Proxy fallback";
+  }
+  if (item.thumbnail_url) {
+    return "Thumbnail fallback";
+  }
+  return "Reference only";
+}
+
+export function evidenceFallbackLabel(item: EvidenceMediaItem) {
+  if (item.resolved === false || item.error) {
+    return item.error ? `Resolution error: ${item.error}` : "Resolution fallback";
+  }
+  if (!item.content_url && item.proxy_url) {
+    return "Proxy URL used because content_url is missing";
+  }
+  if (!item.content_url && item.thumbnail_url) {
+    return "Thumbnail used because original content is missing";
+  }
+  if (item.content_url) {
+    return "Original content_url used in viewer";
+  }
+  return "No display URL available";
 }

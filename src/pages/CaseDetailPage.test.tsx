@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Route, Routes } from "react-router-dom";
 
@@ -35,7 +35,16 @@ const detail: CaseDetail = {
     face_detection: { status: "detected", confidence: 0.91 },
     semantic_descriptor: { summary: "person near restricted access" },
   },
-  evidence_media: [evidenceMediaFixture({ media_id: "media-case-001" })],
+  evidence_media: [
+    evidenceMediaFixture({ media_id: "media-case-001" }),
+    evidenceMediaFixture({
+      ref: "s3://vigilante-frames/camera-1/frame-002.jpg",
+      media_id: "media-case-002",
+      content_url: "/api/v1/media/media-case-002/content",
+      thumbnail_url: "/api/v1/media/media-case-002/thumbnail",
+      captured_at: "2026-01-01T10:05:00Z",
+    }),
+  ],
   notes: [],
   reviews: [],
   suggestions: [],
@@ -94,8 +103,18 @@ describe("CaseDetailPage", () => {
     expect((await screen.findAllByText("Evidence rich case")).length).toBeGreaterThan(0);
     expect(screen.getByText("Case evidence and source context")).toBeInTheDocument();
     expect(screen.getByText("Visual evidence")).toBeInTheDocument();
-    expect(screen.getByAltText(/Evidence preview/i)).toHaveAttribute("src", "/api/v1/media/media-frame-001/thumbnail");
+    expect(screen.getAllByAltText(/Evidence preview/i)[0]).toHaveAttribute("src", "/api/v1/media/media-frame-001/thumbnail");
     expect(screen.getByText("Face detection")).toBeInTheDocument();
     expect(screen.getAllByText("Org org-1").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Open" })[0]);
+
+    expect(screen.getByText("Visual metadata")).toBeInTheDocument();
+    expect(screen.getAllByText("1 / 2").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Next evidence" }));
+
+    expect(screen.getAllByText("2 / 2").length).toBeGreaterThan(0);
+    expect(screen.getByAltText(/Evidence image/i)).toHaveAttribute("src", "/api/v1/media/media-case-002/content");
   });
 });

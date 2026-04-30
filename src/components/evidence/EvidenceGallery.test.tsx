@@ -60,12 +60,73 @@ describe("EvidenceGallery", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open" }));
 
     expect(screen.getByRole("dialog", { name: /media-fr/i })).toBeInTheDocument();
-    expect(screen.getByText("Media metadata")).toBeInTheDocument();
+    expect(screen.getByText("Visual metadata")).toBeInTheDocument();
     expect(screen.getByAltText(/Evidence image/i)).toHaveAttribute("src", "/api/v1/media/media-frame-001/content");
 
     fireEvent.click(screen.getByRole("button", { name: "Close viewer" }));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("zooms in and resets the enhanced viewer", () => {
+    renderWithAppProviders(<EvidenceGallery media={[evidenceMediaFixture()]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+
+    expect(screen.getByText("100%")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+
+    expect(screen.getByText("125%")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset zoom" }));
+
+    expect(screen.getByText("100%")).toBeInTheDocument();
+  });
+
+  it("navigates previous and next between multiple evidence images without leaving the modal", () => {
+    renderWithAppProviders(
+      <EvidenceGallery
+        media={[
+          evidenceMediaFixture(),
+          evidenceMediaFixture({
+            ref: "s3://vigilante-frames/camera-1/frame-002.jpg",
+            media_id: "media-frame-002",
+            content_url: "/api/v1/media/media-frame-002/content",
+            thumbnail_url: "/api/v1/media/media-frame-002/thumbnail",
+            captured_at: "2026-01-01T10:05:00Z",
+          }),
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Open" })[0]);
+
+    expect(screen.getAllByText("1 / 2").length).toBeGreaterThan(0);
+    expect(screen.getByAltText(/Evidence image/i)).toHaveAttribute("src", "/api/v1/media/media-frame-001/content");
+
+    fireEvent.click(screen.getByRole("button", { name: "Next evidence" }));
+
+    expect(screen.getAllByText("2 / 2").length).toBeGreaterThan(0);
+    expect(screen.getByAltText(/Evidence image/i)).toHaveAttribute("src", "/api/v1/media/media-frame-002/content");
+
+    fireEvent.click(screen.getByRole("button", { name: "Previous evidence" }));
+
+    expect(screen.getAllByText("1 / 2").length).toBeGreaterThan(0);
+    expect(screen.getByAltText(/Evidence image/i)).toHaveAttribute("src", "/api/v1/media/media-frame-001/content");
+  });
+
+  it("renders rich visual metadata without dumping raw JSON", () => {
+    renderWithAppProviders(<EvidenceGallery media={[evidenceMediaFixture()]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+
+    expect(screen.getByText("Identity and capture")).toBeInTheDocument();
+    expect(screen.getByText("Image delivery")).toBeInTheDocument();
+    expect(screen.getByText("Resolution state")).toBeInTheDocument();
+    expect(screen.getByText("Operational timestamps")).toBeInTheDocument();
+    expect(screen.getAllByText("Original content_url used in viewer").length).toBeGreaterThan(0);
+    expect(screen.getByText("camera-1/frame-001.jpg")).toBeInTheDocument();
   });
 
   it("renders unresolved fallback when neither thumbnail nor content is available", () => {

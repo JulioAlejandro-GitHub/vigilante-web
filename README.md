@@ -144,7 +144,9 @@ La web consume la evidencia enriquecida que entrega `vigilante-api` en `evidence
 - No se conecta directo a MinIO/S3 ni expone credenciales de storage.
 - Mantiene `evidence_refs` como fallback textual cuando no hay media resuelta.
 - Si la URL de imagen falla, muestra placeholder y conserva la evidencia técnica/payload.
-- El viewer ampliado muestra imagen real y metadata básica como `content_type`, dimensiones, `media_id`, ref, cámara y `captured_at` cuando están disponibles.
+- El viewer forense permite zoom in/out, reset, pan por arrastre cuando la imagen está ampliada y navegación prev/next sin recargar la página.
+- El viewer usa una tira de thumbnails para conservar contexto entre múltiples evidencias y un compare mode simple para contrastar la imagen actual con la siguiente/anterior.
+- La metadata visual se presenta por grupos operativos: identidad/captura, delivery de imagen, resolución/fallback, timestamps e integridad.
 
 ## Slice 7
 
