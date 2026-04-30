@@ -18,6 +18,12 @@ export interface EvidenceMediaItem {
   checksum_sha256?: string | null;
   etag?: string | null;
   content_url?: string | null;
+  thumbnail_url?: string | null;
+  thumbnail_content_type?: string | null;
+  thumbnail_width?: number | null;
+  thumbnail_height?: number | null;
+  thumbnail_available?: boolean | null;
+  thumbnail_status?: string | null;
   proxy_url?: string | null;
   metadata_url?: string | null;
   metadata?: Record<string, unknown>;

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 
 import { EvidenceFallback } from "./EvidenceFallback";
-import { EvidenceImageCard, evidenceImageUrl } from "./EvidenceImageCard";
+import { EvidenceImageCard, evidencePreviewUrl } from "./EvidenceImageCard";
 import { EvidenceViewerModal } from "./EvidenceViewerModal";
 import type { EvidenceMediaItem } from "../../types/api";
 import { dedupeEvidenceMedia } from "../../utils/evidence";
@@ -52,9 +52,9 @@ export function EvidenceGallery({ media = [], fallbackRefs = [], sourceEventId, 
 function isRenderableImageEvidence(item: EvidenceMediaItem) {
   const contentType = item.content_type?.toLowerCase();
   const isImage = !contentType || contentType.startsWith("image/");
-  return item.resolved !== false && isImage && Boolean(evidenceImageUrl(item));
+  return item.resolved !== false && isImage && Boolean(evidencePreviewUrl(item));
 }
 
 function evidenceItemKey(item: EvidenceMediaItem) {
-  return item.media_id || item.content_url || item.proxy_url || item.ref;
+  return item.media_id || item.thumbnail_url || item.content_url || item.proxy_url || item.ref;
 }

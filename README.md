@@ -88,8 +88,8 @@ npm run dev
 Validación visual esperada con media local:
 
 - abrir un caso, manual review, case suggestion o timeline event con `evidence_media`;
-- ver preview de imagen en el panel `Visual evidence`;
-- abrir el viewer ampliado con metadata;
+- ver preview liviano usando `thumbnail_url` en el panel `Visual evidence`;
+- abrir el viewer ampliado con `content_url` original y metadata;
 - confirmar fallback textual cuando solo existan `evidence_refs` o cuando la imagen falle.
 
 ## Rutas
@@ -138,7 +138,9 @@ Manejo de errores auth:
 
 La web consume la evidencia enriquecida que entrega `vigilante-api` en `evidence_media` para casos, manual reviews, case suggestions y timeline events.
 
-- Usa `content_url` tal como viene del backend para renderizar la imagen.
+- Usa `thumbnail_url` para previews/cards/galerías cuando está disponible.
+- Usa `content_url` para el viewer ampliado, manteniendo la imagen original completa.
+- Si falta thumbnail, el preview cae a `content_url`; si también falta, cae al fallback técnico de `evidence_refs`.
 - No se conecta directo a MinIO/S3 ni expone credenciales de storage.
 - Mantiene `evidence_refs` como fallback textual cuando no hay media resuelta.
 - Si la URL de imagen falla, muestra placeholder y conserva la evidencia técnica/payload.

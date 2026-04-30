@@ -11,7 +11,7 @@ interface EvidenceFallbackProps {
 }
 
 export function EvidenceFallback({ fallbackRefs = [], mediaItems = [], sourceEventId, compact = false }: EvidenceFallbackProps) {
-  const unresolvedItems = mediaItems.filter((item) => item.resolved === false || item.error || !(item.content_url || item.proxy_url));
+  const unresolvedItems = mediaItems.filter((item) => item.resolved === false || item.error || !(item.thumbnail_url || item.content_url || item.proxy_url));
   const shownRefs = dedupeRefs([
     ...unresolvedItems.map((item) => item.ref).filter(Boolean),
     ...fallbackRefs,

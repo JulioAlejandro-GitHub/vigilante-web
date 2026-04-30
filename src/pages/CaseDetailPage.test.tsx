@@ -94,7 +94,7 @@ describe("CaseDetailPage", () => {
     expect((await screen.findAllByText("Evidence rich case")).length).toBeGreaterThan(0);
     expect(screen.getByText("Case evidence and source context")).toBeInTheDocument();
     expect(screen.getByText("Visual evidence")).toBeInTheDocument();
-    expect(screen.getByAltText(/Evidence preview/i)).toHaveAttribute("src", "/api/v1/media/media-frame-001/content");
+    expect(screen.getByAltText(/Evidence preview/i)).toHaveAttribute("src", "/api/v1/media/media-frame-001/thumbnail");
     expect(screen.getByText("Face detection")).toBeInTheDocument();
     expect(screen.getAllByText("Org org-1").length).toBeGreaterThan(0);
   });

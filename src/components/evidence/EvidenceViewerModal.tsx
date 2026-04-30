@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, Image, X } from "lucide-react";
 
 import { EvidenceMetadataPanel } from "./EvidenceMetadataPanel";
-import { evidenceImageUrl, evidenceTitle } from "./EvidenceImageCard";
+import { evidenceOriginalImageUrl, evidenceTitle } from "./EvidenceImageCard";
 import type { EvidenceMediaItem } from "../../types/api";
 
 interface EvidenceViewerModalProps {
@@ -11,7 +11,7 @@ interface EvidenceViewerModalProps {
 }
 
 export function EvidenceViewerModal({ item, onClose }: EvidenceViewerModalProps) {
-  const imageUrl = evidenceImageUrl(item);
+  const imageUrl = evidenceOriginalImageUrl(item);
   const title = evidenceTitle(item);
   const [status, setStatus] = useState<"loading" | "loaded" | "error">(imageUrl ? "loading" : "error");
 

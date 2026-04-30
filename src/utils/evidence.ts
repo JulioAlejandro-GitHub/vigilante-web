@@ -172,7 +172,9 @@ export function dedupeEvidenceMedia(items: EvidenceMediaItem[]): EvidenceMediaIt
   const deduped: EvidenceMediaItem[] = [];
 
   for (const item of items) {
-    const key = [item.media_id, item.content_url, item.proxy_url, item.ref].find((value) => typeof value === "string" && value.trim());
+    const key = [item.media_id, item.thumbnail_url, item.content_url, item.proxy_url, item.ref].find(
+      (value) => typeof value === "string" && value.trim(),
+    );
     if (!key) {
       continue;
     }
@@ -283,10 +285,11 @@ function toEvidenceMediaItem(value: unknown): EvidenceMediaItem | null {
   const ref = firstString(value.ref, value.source_ref, value.evidence_ref, value.media_ref) ?? "";
   const mediaId = firstString(value.media_id, value.mediaId);
   const contentUrl = firstString(value.content_url, value.contentUrl);
+  const thumbnailUrl = firstString(value.thumbnail_url, value.thumbnailUrl);
   const proxyUrl = firstString(value.proxy_url, value.proxyUrl);
   const error = firstString(value.error, value.reason);
 
-  if (!ref && !mediaId && !contentUrl && !proxyUrl && !error) {
+  if (!ref && !mediaId && !contentUrl && !thumbnailUrl && !proxyUrl && !error) {
     return null;
   }
 
@@ -295,6 +298,12 @@ function toEvidenceMediaItem(value: unknown): EvidenceMediaItem | null {
     ref,
     media_id: mediaId ?? null,
     content_url: contentUrl ?? null,
+    thumbnail_url: thumbnailUrl ?? null,
+    thumbnail_content_type: firstString(value.thumbnail_content_type, value.thumbnailContentType) ?? null,
+    thumbnail_width: firstNumber(value.thumbnail_width, value.thumbnailWidth),
+    thumbnail_height: firstNumber(value.thumbnail_height, value.thumbnailHeight),
+    thumbnail_available: firstBoolean(value.thumbnail_available, value.thumbnailAvailable),
+    thumbnail_status: firstString(value.thumbnail_status, value.thumbnailStatus) ?? null,
     proxy_url: proxyUrl ?? null,
     metadata: asRecord(value.metadata) ?? {},
     error: error ?? null,
@@ -304,6 +313,30 @@ function toEvidenceMediaItem(value: unknown): EvidenceMediaItem | null {
 function firstString(...values: unknown[]): string | null {
   for (const value of values) {
     if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function firstNumber(...values: unknown[]): number | null {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+  return null;
+}
+
+function firstBoolean(...values: unknown[]): boolean | null {
+  for (const value of values) {
+    if (typeof value === "boolean") {
       return value;
     }
   }

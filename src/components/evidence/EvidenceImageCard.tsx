@@ -10,7 +10,8 @@ interface EvidenceImageCardProps {
 }
 
 export function EvidenceImageCard({ item, onOpen }: EvidenceImageCardProps) {
-  const imageUrl = evidenceImageUrl(item);
+  const imageUrl = evidencePreviewUrl(item);
+  const viewerUrl = evidenceOriginalImageUrl(item);
   const [status, setStatus] = useState<"loading" | "loaded" | "error">(imageUrl ? "loading" : "error");
   const title = evidenceTitle(item);
   const dimensions = item.width && item.height ? `${item.width} x ${item.height}` : null;
@@ -64,7 +65,7 @@ export function EvidenceImageCard({ item, onOpen }: EvidenceImageCardProps) {
               {item.ref ? <div className="break-words">Ref: {item.ref}</div> : null}
             </div>
           </div>
-          <button className="btn shrink-0 px-2 py-1 text-xs" type="button" onClick={() => onOpen(item)} disabled={!imageUrl || failed}>
+          <button className="btn shrink-0 px-2 py-1 text-xs" type="button" onClick={() => onOpen(item)} disabled={!viewerUrl}>
             <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" />
             Open
           </button>
@@ -76,8 +77,16 @@ export function EvidenceImageCard({ item, onOpen }: EvidenceImageCardProps) {
   );
 }
 
+export function evidencePreviewUrl(item: EvidenceMediaItem) {
+  return item.thumbnail_url || item.content_url || item.proxy_url || null;
+}
+
+export function evidenceOriginalImageUrl(item: EvidenceMediaItem) {
+  return item.content_url || item.proxy_url || item.thumbnail_url || null;
+}
+
 export function evidenceImageUrl(item: EvidenceMediaItem) {
-  return item.content_url || item.proxy_url || null;
+  return evidencePreviewUrl(item);
 }
 
 export function evidenceTitle(item: EvidenceMediaItem) {

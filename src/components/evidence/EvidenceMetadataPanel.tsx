@@ -10,10 +10,13 @@ interface EvidenceMetadataPanelProps {
 
 export function EvidenceMetadataPanel({ item, compact = false }: EvidenceMetadataPanelProps) {
   const dimensions = item.width && item.height ? `${item.width} x ${item.height}` : null;
+  const thumbnailDimensions = item.thumbnail_width && item.thumbnail_height ? `${item.thumbnail_width} x ${item.thumbnail_height}` : null;
   const storage = [item.storage_backend, item.bucket].filter(Boolean).join(" / ");
   const rows = [
     { label: "Content type", value: item.content_type },
     { label: "Dimensions", value: dimensions },
+    { label: "Thumbnail", value: thumbnailDimensions ?? item.thumbnail_status },
+    { label: "Thumbnail type", value: item.thumbnail_content_type },
     { label: "Media ID", value: item.media_id },
     { label: "Reference", value: item.ref },
     { label: "Captured", value: formatOptionalDate(item.captured_at) },

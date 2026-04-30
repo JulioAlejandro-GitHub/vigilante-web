@@ -27,6 +27,6 @@ describe("EvidenceWorkspace", () => {
     expect(screen.getByText("Face detection")).toBeInTheDocument();
     expect(screen.getByText("Semantic descriptor")).toBeInTheDocument();
     expect(screen.getByText("Visual evidence")).toBeInTheDocument();
-    expect(screen.getByAltText(/Evidence preview/i)).toHaveAttribute("src", "/api/v1/media/media-frame-001/content");
+    expect(screen.getByAltText(/Evidence preview/i)).toHaveAttribute("src", "/api/v1/media/media-frame-001/thumbnail");
   });
 });

@@ -16,7 +16,7 @@ export function EvidenceMediaPanel({
   sourceEventId,
   title = "Visual evidence",
 }: EvidenceMediaPanelProps) {
-  const resolvedCount = (evidenceMedia ?? []).filter((item) => item.resolved !== false && (item.content_url || item.proxy_url)).length;
+  const resolvedCount = (evidenceMedia ?? []).filter((item) => item.resolved !== false && (item.thumbnail_url || item.content_url || item.proxy_url)).length;
 
   return (
     <section className="panel p-4">
