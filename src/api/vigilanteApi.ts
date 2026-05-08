@@ -4,6 +4,10 @@ import type {
   CaseListParams,
   CaseNote,
   CaseRecord,
+  CameraRecommendation,
+  CameraRecommendationApplyResult,
+  CameraRecommendationListParams,
+  CameraRecommendationPreviewResponse,
   CaseSuggestion,
   DashboardSummary,
   HealthResponse,
@@ -65,6 +69,10 @@ export interface PromoteCaseSuggestionPayload {
   case_payload?: Record<string, unknown>;
 }
 
+export interface CameraRecommendationActionPayload {
+  comment?: string;
+}
+
 export const api = {
   health: () => getJson<HealthResponse>("/health"),
   dashboardSummary: (assignedTo?: string) =>
@@ -100,6 +108,21 @@ export const api = {
     postJson<CaseSuggestion>(`/api/v1/case-suggestions/${suggestionId}/resolve`, payload),
   promoteCaseSuggestion: (suggestionId: string, payload: PromoteCaseSuggestionPayload) =>
     postJson<CaseRecord>(`/api/v1/case-suggestions/${suggestionId}/promote`, payload),
+
+  listCameraRecommendations: (params: CameraRecommendationListParams) =>
+    getJson<CameraRecommendation[]>(`/api/v1/camera-recommendations${buildQueryString(params)}`),
+  getCameraRecommendation: (recommendationId: string) =>
+    getJson<CameraRecommendation>(`/api/v1/camera-recommendations/${recommendationId}`),
+  previewCameraRecommendation: (recommendationId: string) =>
+    getJson<CameraRecommendationPreviewResponse>(`/api/v1/camera-recommendations/${recommendationId}/preview`),
+  approveCameraRecommendation: (recommendationId: string, payload: CameraRecommendationActionPayload) =>
+    postJson<CameraRecommendation>(`/api/v1/camera-recommendations/${recommendationId}/approve`, payload),
+  rejectCameraRecommendation: (recommendationId: string, payload: CameraRecommendationActionPayload) =>
+    postJson<CameraRecommendation>(`/api/v1/camera-recommendations/${recommendationId}/reject`, payload),
+  applyCameraRecommendation: (recommendationId: string, payload: CameraRecommendationActionPayload) =>
+    postJson<CameraRecommendationApplyResult>(`/api/v1/camera-recommendations/${recommendationId}/apply`, payload),
+  rollbackCameraRecommendation: (recommendationId: string, payload: CameraRecommendationActionPayload) =>
+    postJson<CameraRecommendationApplyResult>(`/api/v1/camera-recommendations/${recommendationId}/rollback`, payload),
 
   listTimeline: (params: TimelineListParams) =>
     getJson<TimelineEvent[]>(`/api/v1/timeline${buildQueryString(params)}`),

@@ -1,7 +1,15 @@
 import type { Permission, PermissionResourceContext, PermissionResult, SessionOperationalContext, UserRole } from "../types/session";
 
 const rolePermissions: Record<string, Set<Permission>> = {
-  analyst: new Set<Permission>(["case:write", "case:assign", "case:status", "case:note", "queue:resolve", "suggestion:resolve"]),
+  analyst: new Set<Permission>([
+    "case:write",
+    "case:assign",
+    "case:status",
+    "case:note",
+    "queue:resolve",
+    "suggestion:resolve",
+    "camera-recommendation:operate",
+  ]),
   supervisor: new Set<Permission>([
     "case:write",
     "case:assign",
@@ -13,6 +21,7 @@ const rolePermissions: Record<string, Set<Permission>> = {
     "queue:resolve",
     "suggestion:resolve",
     "suggestion:promote",
+    "camera-recommendation:operate",
     "bulk:write",
     "supervisor:view",
   ]),
@@ -29,6 +38,7 @@ const permissionLabels: Record<Permission, string> = {
   "queue:resolve": "resolve queue items",
   "suggestion:resolve": "resolve suggestions",
   "suggestion:promote": "promote suggestions",
+  "camera-recommendation:operate": "operate camera recommendations",
   "bulk:write": "run bulk actions",
   "supervisor:view": "view supervisor controls",
 };

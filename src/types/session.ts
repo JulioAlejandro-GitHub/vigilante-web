@@ -11,6 +11,7 @@ export type Permission =
   | "queue:resolve"
   | "suggestion:resolve"
   | "suggestion:promote"
+  | "camera-recommendation:operate"
   | "bulk:write"
   | "supervisor:view";
 

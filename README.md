@@ -104,6 +104,7 @@ Validación visual esperada con media local:
 - `/cases/:caseId`
 - `/manual-reviews`
 - `/manual-reviews/:reviewId`
+- `/camera-recommendations`
 - `/case-suggestions`
 - `/case-suggestions/:suggestionId`
 - `/timeline`
@@ -183,7 +184,33 @@ Esa sesión se usa en:
 - notas de caso
 - resolución de manual reviews
 - resolución/promoción de case suggestions
+- approve/reject/apply/rollback de camera recommendations
 - links de "My cases"
+
+## Camera recommendations
+
+`/camera-recommendations` cierra el loop humano del workflow de recomendaciones de cámara expuesto por `vigilante-api`.
+
+Consume:
+
+- `GET /api/v1/camera-recommendations`
+- `GET /api/v1/camera-recommendations/{recommendation_id}`
+- `GET /api/v1/camera-recommendations/{recommendation_id}/preview`
+- `POST /api/v1/camera-recommendations/{recommendation_id}/approve`
+- `POST /api/v1/camera-recommendations/{recommendation_id}/reject`
+- `POST /api/v1/camera-recommendations/{recommendation_id}/apply`
+- `POST /api/v1/camera-recommendations/{recommendation_id}/rollback`
+
+La vista incluye:
+
+- listado con badges de estado, severidad, `actionable` y `auto_apply`
+- filtros por `status`, `camera_id`, `recommendation_type`, `severity` y búsqueda local por id/cámara/título/razón
+- detalle con evidencia, valores actuales/propuestos, métricas, resumen de ventana y metadata paths
+- preview del patch con path afectado, valor actual, valor esperado, valor propuesto, stale/applicable y errores de validación
+- acciones con confirmación y comentario opcional según estado: `pending` -> approve/reject, `approved` -> apply, `applied` -> rollback
+- auditoría básica del último evento `workflow` y link al timeline filtrado por cámara
+
+La UI no implementa lógica de workflow propia; solo presenta estado y ejecuta las transiciones del API.
 
 ### RBAC visual
 

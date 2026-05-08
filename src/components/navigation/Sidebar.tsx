@@ -1,4 +1,4 @@
-import { Activity, ClipboardList, FileText, LayoutDashboard, ListChecks, Search, ShieldCheck } from "lucide-react";
+import { Activity, Camera, ClipboardList, FileText, LayoutDashboard, ListChecks, Search, ShieldCheck } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { CurrentUserMenu } from "../session/CurrentUserMenu";
@@ -8,6 +8,7 @@ const navItems = [
   { to: "/my-work", label: "My Work", icon: ListChecks },
   { to: "/cases", label: "Cases", icon: FileText },
   { to: "/manual-reviews", label: "Manual reviews", icon: ClipboardList },
+  { to: "/camera-recommendations", label: "Camera recommendations", icon: Camera },
   { to: "/case-suggestions", label: "Suggestions", icon: Search },
   { to: "/timeline", label: "Timeline", icon: Activity },
 ];

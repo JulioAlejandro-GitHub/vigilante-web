@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { Layout } from "./components/Layout";
+import { CameraRecommendationsPage } from "./pages/CameraRecommendationsPage";
 import { CaseDetailPage } from "./pages/CaseDetailPage";
 import { CaseSuggestionDetailPage } from "./pages/CaseSuggestionDetailPage";
 import { CaseSuggestionsPage } from "./pages/CaseSuggestionsPage";
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/cases/:caseId" element={<CaseDetailPage />} />
           <Route path="/manual-reviews" element={<ManualReviewsPage />} />
           <Route path="/manual-reviews/:reviewId" element={<ManualReviewDetailPage />} />
+          <Route path="/camera-recommendations" element={<CameraRecommendationsPage />} />
           <Route path="/case-suggestions" element={<CaseSuggestionsPage />} />
           <Route path="/case-suggestions/:suggestionId" element={<CaseSuggestionDetailPage />} />
           <Route path="/timeline" element={<TimelinePage />} />

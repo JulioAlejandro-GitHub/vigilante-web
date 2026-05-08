@@ -1,4 +1,11 @@
-import type { CaseSuggestion, EvidenceMediaItem, ManualReview, TimelineEvent } from "../types/api";
+import type {
+  CameraRecommendation,
+  CameraRecommendationPreviewResponse,
+  CaseSuggestion,
+  EvidenceMediaItem,
+  ManualReview,
+  TimelineEvent,
+} from "../types/api";
 
 export function evidenceMediaFixture(patch: Partial<EvidenceMediaItem> = {}): EvidenceMediaItem {
   return {
@@ -106,6 +113,71 @@ export function caseSuggestionFixture(patch: Partial<CaseSuggestion> = {}): Case
     promoted_case_id: "case-1",
     promoted_at: null,
     evidence_media: [evidenceMediaFixture({ media_id: "media-suggestion-001" })],
+    ...patch,
+  };
+}
+
+export function cameraRecommendationFixture(patch: Partial<CameraRecommendation> = {}): CameraRecommendation {
+  return {
+    recommendation_id: "rec-face-quality",
+    camera_id: "camera-1",
+    status: "pending",
+    recommendation_type: "face_tuning",
+    current_value: { face_quality_threshold: 0.8 },
+    suggested_value: { face_quality_threshold: 0.65 },
+    evidence: {
+      summary: "Face detections dropped below expected volume",
+      face_detection: { status: "low_quality", confidence: 0.72 },
+      evidence_refs: ["s3://vigilante-frames/camera-1/frame-001.jpg"],
+    },
+    generated_at: "2026-01-01T10:00:00Z",
+    actionable: true,
+    applicable: true,
+    metadata_paths: ["api.camera.metadata.recognition.face_quality_threshold"],
+    impact: "Adjusts recognition face tuning threshold for this camera.",
+    severity: "medium",
+    title: "Lower face quality threshold",
+    reason: "Recent metrics show low quality face detections on camera-1.",
+    confidence: 0.84,
+    metrics_used: ["face_quality_p50", "face_detection_count"],
+    window_summary: { hours: 24, face_quality_p50: 0.52 },
+    rule_set_version: "runtime_recommendation_rules_v1",
+    source_status: "pending",
+    auto_apply: false,
+    workflow: {},
+    last_error: null,
+    ...patch,
+  };
+}
+
+export function cameraRecommendationPreviewFixture(
+  recommendation: CameraRecommendation = cameraRecommendationFixture(),
+  patch: Partial<CameraRecommendationPreviewResponse> = {},
+): CameraRecommendationPreviewResponse {
+  return {
+    recommendation,
+    applicable: true,
+    impact: recommendation.impact,
+    patches: [
+      {
+        metadata_path: "api.camera.metadata.recognition.face_quality_threshold",
+        path: ["recognition", "face_quality_threshold"],
+        current_value: 0.8,
+        current_value_present: true,
+        expected_current_value: 0.8,
+        expected_current_value_present: true,
+        suggested_value: 0.65,
+        stale: false,
+      },
+    ],
+    diff: {
+      "api.camera.metadata.recognition.face_quality_threshold": {
+        from: 0.8,
+        to: 0.65,
+        current_value_present: true,
+      },
+    },
+    validation_errors: [],
     ...patch,
   };
 }

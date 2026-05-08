@@ -155,6 +155,74 @@ export interface CaseSuggestion {
   evidence_media?: EvidenceMediaItem[];
 }
 
+export type CameraRecommendationStatus = "pending" | "approved" | "rejected" | "applied" | "failed" | "rolled_back";
+
+export interface CameraRecommendationWorkflow {
+  last_event_type?: string | null;
+  last_event_id?: string | null;
+  actor?: string | null;
+  actor_user_id?: string | null;
+  comment?: string | null;
+  occurred_at?: string | null;
+  result?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface CameraRecommendation {
+  recommendation_id: string;
+  camera_id: string;
+  status: CameraRecommendationStatus;
+  recommendation_type: string;
+  current_value: unknown;
+  suggested_value: unknown;
+  evidence: Record<string, unknown>;
+  generated_at: string | null;
+  actionable: boolean;
+  applicable: boolean;
+  metadata_paths: string[];
+  impact: string | null;
+  severity: Severity | null;
+  title: string | null;
+  reason: string | null;
+  confidence: number | null;
+  metrics_used: string[];
+  window_summary: Record<string, unknown>;
+  rule_set_version: string | null;
+  source_status: string | null;
+  auto_apply: boolean;
+  workflow: CameraRecommendationWorkflow;
+  last_error: string | null;
+}
+
+export interface CameraRecommendationPatchPreview {
+  metadata_path: string;
+  path: string[];
+  current_value: unknown;
+  current_value_present: boolean;
+  expected_current_value: unknown;
+  expected_current_value_present: boolean;
+  suggested_value: unknown;
+  stale: boolean;
+}
+
+export interface CameraRecommendationPreviewResponse {
+  recommendation: CameraRecommendation;
+  applicable: boolean;
+  impact: string | null;
+  patches: CameraRecommendationPatchPreview[];
+  diff: Record<string, { from?: unknown; to?: unknown; current_value_present?: boolean; [key: string]: unknown }>;
+  validation_errors: string[];
+}
+
+export interface CameraRecommendationApplyResult {
+  recommendation: CameraRecommendation;
+  applied: boolean;
+  patches: CameraRecommendationPatchPreview[];
+  metadata_hash_before: string | null;
+  metadata_hash_after: string | null;
+  error: string | null;
+}
+
 export interface CaseDetail extends CaseRecord {
   notes: CaseNote[];
   reviews: ManualReview[];
@@ -191,6 +259,14 @@ export interface QueueListParams {
   priority?: string;
   camera_id?: string;
   subject_id?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface CameraRecommendationListParams {
+  status?: string;
+  camera_id?: string;
+  actionable?: boolean;
   limit?: number;
   offset?: number;
 }
