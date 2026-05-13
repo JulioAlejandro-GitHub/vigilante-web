@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { Layout } from "./components/Layout";
+import { ControlCenterPage } from "./features/control-center/ControlCenterPage";
 import { CameraRecommendationsPage } from "./pages/CameraRecommendationsPage";
 import { CaseDetailPage } from "./pages/CaseDetailPage";
 import { CaseSuggestionDetailPage } from "./pages/CaseSuggestionDetailPage";
@@ -23,6 +24,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/control-center" element={<ControlCenterPage />} />
           <Route path="/my-work" element={<MyWorkPage />} />
           <Route path="/cases" element={<CasesPage />} />
           <Route path="/cases/:caseId" element={<CaseDetailPage />} />

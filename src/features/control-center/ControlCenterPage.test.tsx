@@ -1,0 +1,188 @@
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { ControlCenterPage } from "./ControlCenterPage";
+import { renderWithAppProviders } from "../../test/render";
+import { evidenceMediaFixture, timelineEventFixture } from "../../test/fixtures";
+import type { CaseDetail, CaseRecord, TimelineEvent } from "../../types/api";
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+}
+
+function caseRecord(patch: Partial<CaseRecord> = {}): CaseRecord {
+  return {
+    case_id: "case-1",
+    case_code: "CASE-1",
+    case_type: "multi_event_tracking",
+    title: "Repeated observed subject",
+    status: "open",
+    db_status: "open",
+    priority: 2,
+    severity: "high",
+    source_suggestion_id: "suggestion-1",
+    source_event_id: "event-1",
+    primary_subject_id: "subject-1",
+    primary_camera_id: "camera-1",
+    opened_at: "2026-01-01T10:00:00Z",
+    closed_at: null,
+    updated_at: "2026-01-01T10:03:00Z",
+    assigned_to: null,
+    assigned_by: null,
+    assigned_at: null,
+    assignment_reason: null,
+    organization_id: "org-1",
+    site_id: "site-1",
+    case_payload: {
+      suggested_reason: "Repeated unresolved subject near restricted access.",
+      semantic_summary: "Subject appeared near a restricted access point.",
+    },
+    evidence_media: [evidenceMediaFixture({ media_id: "media-case-001", camera_id: "camera-1" })],
+    ...patch,
+  };
+}
+
+function caseDetail(patch: Partial<CaseDetail> = {}): CaseDetail {
+  const base = caseRecord(patch);
+  return {
+    ...base,
+    notes: [],
+    reviews: [],
+    suggestions: [],
+    timeline: [timelineEventFixture({ case_id: base.case_id, camera_id: base.primary_camera_id, source_event_id: base.source_event_id ?? "event-1" })],
+    ...patch,
+  };
+}
+
+function installFetch(events: TimelineEvent[], cases: Record<string, CaseDetail>) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/health")) {
+        return jsonResponse({ status: "ok", app: "vigilante-api", env: "test", projection_strategy: "timeline_event_payload" });
+      }
+      if (url.includes("/api/v1/dashboard/summary")) {
+        return jsonResponse({
+          total_cases: 2,
+          open_cases: 1,
+          under_review_cases: 1,
+          unassigned_cases: 1,
+          assigned_cases: 1,
+          cases_assigned_to_user: 0,
+          pending_manual_reviews: 1,
+          pending_case_suggestions: 1,
+        });
+      }
+      if (url.includes("/api/v1/cameras")) {
+        return jsonResponse([
+          {
+            camera_id: "camera-1",
+            external_camera_key: "cam-lobby",
+            site_id: "site-1",
+            zone_id: null,
+            name: "Camera Lobby",
+            is_active: true,
+            source_type: "rtsp",
+            camera_hostname: "camera-1.local",
+            camera_port: 554,
+            camera_path: null,
+            rtsp_transport: "tcp",
+            channel: null,
+            subtype: null,
+            camera_user: "operator",
+            metadata: { fps: 12, latency_ms: 88 },
+          },
+          {
+            camera_id: "camera-2",
+            external_camera_key: "cam-door",
+            site_id: "site-1",
+            zone_id: null,
+            name: "Camera Door",
+            is_active: true,
+            source_type: "rtsp",
+            camera_hostname: "camera-2.local",
+            camera_port: 554,
+            camera_path: null,
+            rtsp_transport: "tcp",
+            channel: null,
+            subtype: null,
+            camera_user: "operator",
+            metadata: { status: "degraded" },
+          },
+        ]);
+      }
+      if (url.includes("/api/v1/timeline")) {
+        return jsonResponse(events);
+      }
+      const caseMatch = url.match(/\/api\/v1\/cases\/([^/?]+)/);
+      if (caseMatch) {
+        return jsonResponse(cases[caseMatch[1]]);
+      }
+      return jsonResponse({});
+    }),
+  );
+}
+
+describe("ControlCenterPage", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("renders cameras, grouped events, case detail and visual evidence", async () => {
+    const events = [
+      timelineEventFixture({
+        source_event_id: "event-2",
+        event_ts: "2026-01-01T10:02:00Z",
+        case_id: "case-2",
+        camera_id: "camera-2",
+        severity: "critical",
+        summary: "Critical door event",
+        evidence_media: [evidenceMediaFixture({ media_id: "media-door-001", camera_id: "camera-2" })],
+      }),
+      timelineEventFixture({
+        source_event_id: "event-1",
+        event_ts: "2026-01-01T10:00:00Z",
+        case_id: "case-1",
+        camera_id: "camera-1",
+        summary: "Repeated observed subject",
+      }),
+    ];
+    installFetch(events, {
+      "case-1": caseDetail(),
+      "case-2": caseDetail({
+        case_id: "case-2",
+        case_code: "CASE-2",
+        title: "Critical door event",
+        severity: "critical",
+        source_event_id: "event-2",
+        primary_camera_id: "camera-2",
+        primary_subject_id: "subject-2",
+        case_payload: {
+          suggested_reason: "Critical door event requires human action.",
+          semantic_summary: "Person matched near a restricted door.",
+        },
+        evidence_media: [evidenceMediaFixture({ media_id: "media-case-002", camera_id: "camera-2" })],
+      }),
+    });
+
+    renderWithAppProviders(<ControlCenterPage />, "/control-center");
+
+    expect(await screen.findByText("Vigilante Control Center")).toBeInTheDocument();
+    expect(await screen.findByText("Camera Lobby")).toBeInTheDocument();
+    expect(screen.getByText("Camera Door")).toBeInTheDocument();
+    expect(screen.getAllByText("Critical door event").length).toBeGreaterThan(0);
+    expect(await screen.findByText("CASE-2")).toBeInTheDocument();
+    expect(screen.getByText("Evidencia visual evaluada")).toBeInTheDocument();
+    expect(screen.getByText("Acciones del operador")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Repeated observed subject"));
+
+    await waitFor(() => expect(screen.getByText("CASE-1")).toBeInTheDocument());
+    expect(screen.getByText("Subject appeared near a restricted access point.")).toBeInTheDocument();
+  });
+});

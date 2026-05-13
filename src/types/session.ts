@@ -1,6 +1,7 @@
 export type UserRole = string;
 
 export type Permission =
+  | "control-center:view"
   | "case:write"
   | "case:assign"
   | "case:reassign"

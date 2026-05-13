@@ -1,10 +1,13 @@
-import { Activity, Camera, ClipboardList, FileText, LayoutDashboard, ListChecks, Search, ShieldCheck } from "lucide-react";
+import { Activity, Camera, ClipboardList, FileText, LayoutDashboard, ListChecks, Search, ShieldCheck, TowerControl } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
+import { useAuth } from "../../hooks/useAuth";
 import { CurrentUserMenu } from "../session/CurrentUserMenu";
+import type { Permission } from "../../types/session";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/control-center", label: "Centro de Control", icon: TowerControl, permission: "control-center:view" as Permission },
   { to: "/my-work", label: "My Work", icon: ListChecks },
   { to: "/cases", label: "Cases", icon: FileText },
   { to: "/manual-reviews", label: "Manual reviews", icon: ClipboardList },
@@ -18,6 +21,9 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onNavigate }: SidebarProps) {
+  const { can } = useAuth();
+  const visibleItems = navItems.filter((item) => !item.permission || can(item.permission));
+
   return (
     <div className="flex h-full flex-col bg-white">
       <div className="flex min-h-16 items-center gap-3 border-b border-zinc-200 px-4">
@@ -30,7 +36,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         </div>
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-        {navItems.map((item) => (
+        {visibleItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
