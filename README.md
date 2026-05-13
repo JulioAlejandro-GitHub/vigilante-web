@@ -555,6 +555,14 @@ npm run build
 npm run dev
 ```
 
+### Logging operativo
+
+`vigilante-web` no tiene runtime de servidor propio más allá de Vite en local.
+La política INFO/DEBUG aplica en los servicios Python (`api`, `media`,
+`ingestion`, `recognition`). Los smokes E2E del frontend mantienen salida
+compacta con IDs como `recommendation_id` y no imprimen payloads completos salvo
+que el propio test se ejecute con tooling de debug.
+
 ## Pendientes
 
 - CORS/configuración productiva en API
