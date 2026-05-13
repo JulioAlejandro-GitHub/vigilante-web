@@ -94,6 +94,57 @@ Validación visual esperada con media local:
 - reproducir el MP4 derivado con controles nativos del navegador;
 - confirmar fallback textual cuando solo existan `evidence_refs` o cuando la imagen falle.
 
+### Smoke real de camera recommendations
+
+El smoke operacional `npm run smoke:camera-recommendations` valida el workflow real desde `/camera-recommendations` contra el stack local:
+
+- siembra una recomendación controlada en `vigilante-recognition/.runtime/metrics/recommendations.jsonl`;
+- entra a la web con auth real;
+- abre detalle y preview;
+- aprueba y aplica desde la UI;
+- verifica por API que solo cambió `api.camera.metadata.recognition.face_tuning.face_quality_threshold`;
+- espera que ingestion refresque `camera_runtime_config`;
+- escribe un `run_id` nuevo en `.local-logs/run/smoke-correlation.json`;
+- espera un evento `recognition_event_ready` correlacionado que use la config nueva;
+- ejecuta rollback desde la UI y confirma que la metadata volvió.
+
+Preparación:
+
+```bash
+cd ../GIT
+./vigilante_stack.sh up
+
+cd vigilante-web
+npm install
+npx playwright install chromium
+npm run smoke:camera-recommendations
+```
+
+Variables útiles:
+
+- `VIGILANTE_API_BASE_URL`, default `http://127.0.0.1:8001`
+- `VIGILANTE_WEB_BASE_URL`, default `http://127.0.0.1:5173`
+- `VIGILANTE_INGESTION_HEALTH_URL`, default `http://127.0.0.1:8090`
+- `VIGILANTE_SMOKE_USERNAME` / `VIGILANTE_SMOKE_PASSWORD`, default `julio` / `demo123`
+- `VIGILANTE_RECOMMENDATION_CAMERA_ID` o `REAL_CAMERA_ID` para fijar la cámara objetivo
+- `RECOGNITION_RECOMMENDATIONS_PATH` si el API lee otra store JSONL
+- `VIGILANTE_SMOKE_SKIP_ROLLBACK=true` solo para depurar apply sin revertir
+
+Salida esperada:
+
+```text
+recommendation_id=...
+camera_id=...
+approved=true
+applied=true
+metadata_updated=true
+pipeline_reconsumed=true
+correlation_verified=true
+rollback=true
+```
+
+El spec falla con causas explícitas como `api_not_ready`, `web_not_ready`, `recommendation_not_found`, `metadata_not_updated`, `pipeline_not_reconsumed`, `rtsp_not_publishing`, `correlation_not_verified` o `rollback_failed`.
+
 ## Rutas
 
 - `/login` es pública
