@@ -112,7 +112,8 @@ Preparación:
 
 ```bash
 cd ../GIT
-./vigilante_stack.sh up
+./vigilante_stack.sh prepare-smoke-camera
+./vigilante_stack.sh up --clean
 
 cd vigilante-web
 npm install
@@ -127,8 +128,13 @@ Variables útiles:
 - `VIGILANTE_INGESTION_HEALTH_URL`, default `http://127.0.0.1:8090`
 - `VIGILANTE_SMOKE_USERNAME` / `VIGILANTE_SMOKE_PASSWORD`, default `julio` / `demo123`
 - `VIGILANTE_RECOMMENDATION_CAMERA_ID` o `REAL_CAMERA_ID` para fijar la cámara objetivo
+- `VIGILANTE_SMOKE_CAMERA_STATE_PATH`, default `../.local-logs/run/smoke-camera.env`
 - `RECOGNITION_RECOMMENDATIONS_PATH` si el API lee otra store JSONL
 - `VIGILANTE_SMOKE_SKIP_ROLLBACK=true` solo para depurar apply sin revertir
+
+Si no hay variable explícita, el smoke usa primero
+`.local-logs/run/smoke-camera.env` y después busca una cámara visible con
+`api.camera.metadata.smoke.is_smoke_ready=true`.
 
 Salida esperada:
 
@@ -143,7 +149,11 @@ correlation_verified=true
 rollback=true
 ```
 
-El spec falla con causas explícitas como `api_not_ready`, `web_not_ready`, `recommendation_not_found`, `metadata_not_updated`, `pipeline_not_reconsumed`, `rtsp_not_publishing`, `correlation_not_verified` o `rollback_failed`.
+El spec falla con causas explícitas como `api_not_ready`, `web_not_ready`,
+`smoke_camera_not_found`, `smoke_camera_not_visible_in_api`,
+`smoke_camera_not_active_in_ingestion`, `smoke_camera_rtsp_not_publishing`,
+`recommendation_not_found`, `metadata_not_updated`,
+`pipeline_not_reconsumed`, `correlation_not_verified` o `rollback_failed`.
 
 ## Rutas
 

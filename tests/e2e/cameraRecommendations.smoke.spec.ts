@@ -8,6 +8,7 @@ type JsonObject = Record<string, unknown>;
 
 type CameraRead = {
   camera_id: string;
+  is_active?: boolean;
   metadata: JsonObject;
 };
 
@@ -25,6 +26,8 @@ type CameraRecommendationRead = {
 
 type IngestionCameraHealth = {
   camera_id: string;
+  is_smoke_ready?: boolean;
+  is_desired_active?: boolean;
   config_version_hash?: string | null;
   worker_state?: string | null;
   last_publish_at?: string | null;
@@ -71,9 +74,13 @@ type FailureReason =
   | "metadata_not_updated"
   | "metadata_field_missing"
   | "ingestion_not_ready"
+  | "smoke_camera_not_found"
+  | "smoke_camera_not_visible_in_api"
+  | "smoke_camera_not_active_in_ingestion"
+  | "smoke_camera_rtsp_not_publishing"
+  | "smoke_camera_permission_mismatch"
   | "pipeline_not_reconsumed"
   | "rollback_failed"
-  | "rtsp_not_publishing"
   | "correlation_not_verified"
   | "approve_failed"
   | "apply_failed";
@@ -93,6 +100,9 @@ const recommendationStorePath = resolveFromWebDir(
 );
 const smokeCorrelationPath = resolveFromStackDir(
   env("VIGILANTE_SMOKE_CORRELATION_PATH", ".local-logs/run/smoke-correlation.json"),
+);
+const smokeCameraStatePath = resolveFromStackDir(
+  env("VIGILANTE_SMOKE_CAMERA_STATE_PATH", ".local-logs/run/smoke-camera.env"),
 );
 const ingestionLogPath = resolveFromStackDir(env("VIGILANTE_INGESTION_LOG", ".local-logs/vigilante-ingestion.log"));
 const recognitionLogPath = resolveFromStackDir(env("VIGILANTE_RECOGNITION_LOG", ".local-logs/vigilante-recognition.log"));
@@ -338,18 +348,47 @@ async function loginViaUiIfNeeded(page: import("@playwright/test").Page): Promis
 async function resolveTargetCamera(token: string): Promise<CameraRead> {
   const configuredCameraId = process.env.VIGILANTE_RECOMMENDATION_CAMERA_ID || process.env.REAL_CAMERA_ID;
   if (configuredCameraId?.trim()) {
-    return getCamera(token, configuredCameraId.trim());
+    return getCamera(token, configuredCameraId.trim(), "smoke_camera_not_visible_in_api");
+  }
+
+  const preparedCameraId = await readPreparedSmokeCameraId();
+  if (preparedCameraId) {
+    return getCamera(token, preparedCameraId, "smoke_camera_not_visible_in_api");
   }
 
   const cameras = await apiJson<CameraRead[]>("/api/v1/cameras?limit=200", { token });
-  const camera = cameras.find((item) => valueAtPath(item.metadata, recognitionFieldPath) !== undefined) ?? cameras[0];
+  const camera = cameras.find((item) => valueAtPath(item.metadata, ["smoke", "is_smoke_ready"]) === true);
   if (!camera) {
+    throw new SmokeError("smoke_camera_not_found", {
+      metadata_flag: "api.camera.metadata.smoke.is_smoke_ready",
+      hint: "Run ./vigilante_stack.sh prepare-smoke-camera or set VIGILANTE_RECOMMENDATION_CAMERA_ID to a visible camera.",
+    });
+  }
+  if (valueAtPath(camera.metadata, recognitionFieldPath) === undefined) {
     throw new SmokeError("metadata_field_missing", {
+      camera_id: camera.camera_id,
       metadata_path: metadataPath,
-      hint: "No camera is visible to the smoke user. Seed a scoped camera or set VIGILANTE_RECOMMENDATION_CAMERA_ID.",
+      hint: "The smoke-ready camera is visible but lacks recognition.face_tuning.face_quality_threshold.",
     });
   }
   return camera;
+}
+
+async function readPreparedSmokeCameraId(): Promise<string | null> {
+  let content = "";
+  try {
+    content = await fs.readFile(smokeCameraStatePath, "utf-8");
+  } catch {
+    return null;
+  }
+  for (const line of content.split(/\r?\n/)) {
+    const [key, ...parts] = line.split("=");
+    if (key === "VIGILANTE_RECOMMENDATION_CAMERA_ID" || key === "SMOKE_CAMERA_ID" || key === "REAL_CAMERA_ID") {
+      const value = parts.join("=").trim();
+      if (value) return value;
+    }
+  }
+  return null;
 }
 
 function resolveSuggestedValue(previousValue: unknown): number {
@@ -542,7 +581,7 @@ async function validatePipelineReconsumesConfig(input: {
       onTimeout: async () => {
         const ingestionLog = await readLogFromOffset(ingestionLogPath, ingestionLogOffset);
         if (!ingestionLog.includes(`run_id=${input.runId}`)) {
-          throw new SmokeError("rtsp_not_publishing", {
+          throw new SmokeError("smoke_camera_rtsp_not_publishing", {
             camera_id: input.cameraId,
             pipeline_validation_run_id: input.runId,
             ingestion_log: ingestionLogPath,
@@ -651,12 +690,23 @@ function findRecognitionEventEvidence(
   return null;
 }
 
-async function getCamera(token: string, cameraId: string): Promise<CameraRead> {
+async function getCamera(
+  token: string,
+  cameraId: string,
+  forbiddenReason: FailureReason = "smoke_camera_not_visible_in_api",
+): Promise<CameraRead> {
   try {
     return await apiJson<CameraRead>(`/api/v1/cameras/${cameraId}`, { token });
   } catch (error) {
     if (error instanceof ApiHttpError && error.status === 404) {
-      throw new SmokeError("metadata_field_missing", { camera_id: cameraId, detail: error.detail });
+      throw new SmokeError("smoke_camera_not_found", { camera_id: cameraId, detail: error.detail });
+    }
+    if (error instanceof ApiHttpError && error.status === 403) {
+      throw new SmokeError(forbiddenReason, {
+        camera_id: cameraId,
+        hint: "The camera exists but is outside the smoke user's organization/site scope.",
+        detail: error.detail,
+      });
     }
     throw error;
   }
@@ -665,9 +715,17 @@ async function getCamera(token: string, cameraId: string): Promise<CameraRead> {
 async function requireIngestionCamera(cameraId: string): Promise<IngestionCameraHealth> {
   const camera = await getIngestionCamera(cameraId);
   if (!camera) {
-    throw new SmokeError("ingestion_not_ready", {
+    throw new SmokeError("smoke_camera_not_active_in_ingestion", {
       camera_id: cameraId,
       health_url: `${ingestionHealthUrl}/health/cameras`,
+      hint: "Run ./vigilante_stack.sh prepare-smoke-camera and restart ingestion, or ensure REAL_CAMERA_ID matches the smoke camera.",
+    });
+  }
+  if (camera.is_desired_active === false) {
+    throw new SmokeError("smoke_camera_not_active_in_ingestion", {
+      camera_id: cameraId,
+      worker_state: camera.worker_state,
+      is_desired_active: camera.is_desired_active,
     });
   }
   return camera;
