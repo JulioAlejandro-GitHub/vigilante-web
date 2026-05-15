@@ -10,9 +10,12 @@ interface EventTimelineProps {
   refreshing: boolean;
   onRetry: () => void;
   onSelect: (event: ControlCenterEventGroup) => void;
+  canLoadMore: boolean;
+  loadingMore: boolean;
+  onLoadMore: () => void;
 }
 
-export function EventTimeline({ events, selectedId, loading, error, refreshing, onRetry, onSelect }: EventTimelineProps) {
+export function EventTimeline({ events, selectedId, loading, error, refreshing, onRetry, onSelect, canLoadMore, loadingMore, onLoadMore }: EventTimelineProps) {
   return (
     <section className="panel p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -39,11 +42,18 @@ export function EventTimeline({ events, selectedId, loading, error, refreshing, 
       ) : events.length === 0 ? (
         <EmptyState label="Sin eventos procesados recientes." />
       ) : (
-        <div className="max-h-[540px] space-y-2 overflow-y-auto pr-1">
-          {events.map((item) => (
-            <EventCard key={item.id} item={item} selected={selectedId === item.id} onSelect={() => onSelect(item)} />
-          ))}
-        </div>
+        <>
+          <div className="max-h-[540px] space-y-2 overflow-y-auto pr-1">
+            {events.map((item) => (
+              <EventCard key={item.id} item={item} selected={selectedId === item.id} onSelect={() => onSelect(item)} />
+            ))}
+          </div>
+          {canLoadMore ? (
+            <button className="btn mt-3 w-full justify-center" type="button" onClick={onLoadMore} disabled={loadingMore}>
+              {loadingMore ? "Cargando eventos..." : "Cargar más eventos"}
+            </button>
+          ) : null}
+        </>
       )}
     </section>
   );

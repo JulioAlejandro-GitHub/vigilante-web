@@ -12,36 +12,45 @@ interface UseControlCenterEventsOptions {
   enabled?: boolean;
 }
 
-export function useControlCenterEvents({ limit = 80, pollMs = 15000, filters = {}, enabled = true }: UseControlCenterEventsOptions = {}) {
+export function useControlCenterEvents({ limit = 20, pollMs = 15000, filters = {}, enabled = true }: UseControlCenterEventsOptions = {}) {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextOffset, setNextOffset] = useState<number | null>(0);
   const [error, setError] = useState<string | null>(null);
   const filtersKey = JSON.stringify(filters);
 
   const load = useCallback(
-    async (mode: "initial" | "refresh" = "refresh") => {
+    async (mode: "initial" | "refresh" | "more" = "refresh", requestedOffset = 0) => {
       if (!enabled) {
         setEvents([]);
         setLoading(false);
         setRefreshing(false);
+        setLoadingMore(false);
+        setNextOffset(0);
         setError(null);
         return;
       }
       if (mode === "initial") {
         setLoading(true);
+      } else if (mode === "more") {
+        setLoadingMore(true);
       } else {
         setRefreshing(true);
       }
       setError(null);
       try {
-        const next = await controlCenterApi.listRecentEvents({ limit, ...filters });
-        setEvents(sortEventsDesc(dedupeEvents(next)));
+        const offset = mode === "more" ? requestedOffset : 0;
+        const next = await controlCenterApi.listRecentEvents({ limit, offset, include_evidence: false, ...filters });
+        setNextOffset(next.length >= limit ? offset + next.length : null);
+        setEvents((current) => sortEventsDesc(dedupeEvents(mode === "more" ? [...current, ...next] : next)));
       } catch (caught) {
         setError(asErrorMessage(caught));
       } finally {
         setLoading(false);
         setRefreshing(false);
+        setLoadingMore(false);
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -52,6 +61,7 @@ export function useControlCenterEvents({ limit = 80, pollMs = 15000, filters = {
     if (!enabled) {
       setEvents([]);
       setLoading(false);
+      setNextOffset(0);
       setError(null);
       return;
     }
@@ -59,10 +69,11 @@ export function useControlCenterEvents({ limit = 80, pollMs = 15000, filters = {
     setLoading(true);
     setError(null);
     controlCenterApi
-      .listRecentEvents({ limit, ...filters })
+      .listRecentEvents({ limit, offset: 0, include_evidence: false, ...filters })
       .then((next) => {
         if (active) {
           setEvents(sortEventsDesc(dedupeEvents(next)));
+          setNextOffset(next.length >= limit ? next.length : null);
         }
       })
       .catch((caught) => {
@@ -103,8 +114,15 @@ export function useControlCenterEvents({ limit = 80, pollMs = 15000, filters = {
     groups,
     loading,
     refreshing,
+    loadingMore,
+    hasMore: nextOffset !== null,
     error,
     refresh: () => void load("refresh"),
+    loadMore: () => {
+      if (nextOffset !== null && !loadingMore) {
+        void load("more", nextOffset);
+      }
+    },
   };
 }
 

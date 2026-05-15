@@ -25,16 +25,19 @@ export function ControlCenterPage() {
   const eventState = useControlCenterEvents({ enabled: canView, filters });
   const cameraState = useCameraStreams(eventState.events, { enabled: canView });
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const selectedGroup = eventState.groups.find((group) => group.id === selectedGroupId) ?? eventState.groups[0] ?? null;
-  const caseBundle = useControlCenterCases(canView ? selectedGroup?.event.case_id ?? null : null);
+  const selectedGroup = selectedGroupId ? eventState.groups.find((group) => group.id === selectedGroupId) ?? null : null;
+  const caseBundle = useControlCenterCases({
+    caseId: canView ? selectedGroup?.event.case_id ?? null : null,
+    sourceEventId: canView ? selectedGroup?.event.source_event_id ?? null : null,
+  });
 
   useEffect(() => {
-    if (!eventState.groups.length) {
+    if (!eventState.groups.length || !selectedGroupId) {
       setSelectedGroupId(null);
       return;
     }
-    if (!selectedGroupId || !eventState.groups.some((group) => group.id === selectedGroupId)) {
-      setSelectedGroupId(eventState.groups[0].id);
+    if (!eventState.groups.some((group) => group.id === selectedGroupId)) {
+      setSelectedGroupId(null);
     }
   }, [eventState.groups, selectedGroupId]);
 
@@ -72,6 +75,9 @@ export function ControlCenterPage() {
             loading={cameraState.loading}
             error={cameraState.error}
             onRetry={cameraState.refresh}
+            canLoadMore={cameraState.hasMore}
+            loadingMore={cameraState.loadingMore}
+            onLoadMore={cameraState.loadMore}
           />
           <EventTimeline
             events={eventState.groups}
@@ -81,6 +87,9 @@ export function ControlCenterPage() {
             refreshing={eventState.refreshing}
             onRetry={eventState.refresh}
             onSelect={(group: ControlCenterEventGroup) => setSelectedGroupId(group.id)}
+            canLoadMore={eventState.hasMore}
+            loadingMore={eventState.loadingMore}
+            onLoadMore={eventState.loadMore}
           />
         </div>
 

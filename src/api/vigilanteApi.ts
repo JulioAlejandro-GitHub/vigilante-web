@@ -73,17 +73,33 @@ export interface CameraRecommendationActionPayload {
   comment?: string;
 }
 
+export interface CaseDetailParams {
+  recent_limit?: number;
+  expand?: "all" | "summary";
+  include_evidence?: boolean;
+}
+
+export interface CaseRelatedListParams {
+  limit?: number;
+  offset?: number;
+  include_evidence?: boolean;
+}
+
 export const api = {
   health: () => getJson<HealthResponse>("/health"),
   dashboardSummary: (assignedTo?: string) =>
     getJson<DashboardSummary>(`/api/v1/dashboard/summary${buildQueryString({ assigned_to: assignedTo })}`),
 
   listCases: (params: CaseListParams) => getJson<CaseRecord[]>(`/api/v1/cases${buildQueryString(params)}`),
-  getCase: (caseId: string) => getJson<CaseDetail>(`/api/v1/cases/${caseId}`),
-  getCaseTimeline: (caseId: string) => getJson<TimelineEvent[]>(`/api/v1/cases/${caseId}/timeline`),
-  getCaseNotes: (caseId: string) => getJson<CaseNote[]>(`/api/v1/cases/${caseId}/notes`),
-  getCaseReviews: (caseId: string) => getJson<ManualReview[]>(`/api/v1/cases/${caseId}/reviews`),
-  getCaseSuggestions: (caseId: string) => getJson<CaseSuggestion[]>(`/api/v1/cases/${caseId}/suggestions`),
+  getCase: (caseId: string, params: CaseDetailParams = {}) => getJson<CaseDetail>(`/api/v1/cases/${caseId}${buildQueryString(params)}`),
+  getCaseTimeline: (caseId: string, params: CaseRelatedListParams = {}) =>
+    getJson<TimelineEvent[]>(`/api/v1/cases/${caseId}/timeline${buildQueryString(params)}`),
+  getCaseNotes: (caseId: string, params: Omit<CaseRelatedListParams, "include_evidence"> = {}) =>
+    getJson<CaseNote[]>(`/api/v1/cases/${caseId}/notes${buildQueryString(params)}`),
+  getCaseReviews: (caseId: string, params: CaseRelatedListParams = {}) =>
+    getJson<ManualReview[]>(`/api/v1/cases/${caseId}/reviews${buildQueryString(params)}`),
+  getCaseSuggestions: (caseId: string, params: CaseRelatedListParams = {}) =>
+    getJson<CaseSuggestion[]>(`/api/v1/cases/${caseId}/suggestions${buildQueryString(params)}`),
   assignCase: (caseId: string, payload: AssignCasePayload) =>
     postJson<CaseRecord>(`/api/v1/cases/${caseId}/assign`, payload),
   unassignCase: (caseId: string, payload: UnassignCasePayload) =>

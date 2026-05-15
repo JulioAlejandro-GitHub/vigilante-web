@@ -62,10 +62,21 @@ export interface ControlCenterOverview {
 
 export interface ControlCenterCaseBundle {
   detail: CaseDetail | null;
+  timeline: TimelineEvent[];
+  evidence: EvidenceMediaItem[];
   loading: boolean;
   refreshing: boolean;
+  timelineLoading: boolean;
+  timelineLoadingMore: boolean;
+  timelineHasMore: boolean;
+  evidenceLoading: boolean;
+  evidenceLoadingMore: boolean;
+  evidenceHasMore: boolean;
   error: string | null;
+  evidenceError: string | null;
   refresh: () => void;
+  loadMoreTimeline: () => void;
+  loadMoreEvidence: () => void;
 }
 
 export type EvidenceKind = "face" | "body" | "frame" | "context" | "clip" | "recurrence" | "match" | "cross-camera" | "evidence";

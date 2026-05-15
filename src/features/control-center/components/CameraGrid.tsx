@@ -8,9 +8,12 @@ interface CameraGridProps {
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  canLoadMore: boolean;
+  loadingMore: boolean;
+  onLoadMore: () => void;
 }
 
-export function CameraGrid({ cameras, selectedCameraId, loading, error, onRetry }: CameraGridProps) {
+export function CameraGrid({ cameras, selectedCameraId, loading, error, onRetry, canLoadMore, loadingMore, onLoadMore }: CameraGridProps) {
   if (loading) {
     return (
       <section className="panel p-4">
@@ -47,21 +50,18 @@ export function CameraGrid({ cameras, selectedCameraId, loading, error, onRetry 
     );
   }
 
-  const visibleCameras = cameras.slice(0, 6);
-  const extraCount = cameras.length - visibleCameras.length;
-
   return (
     <section className="panel p-4">
       <SectionTitle title="Cámaras activas" count={cameras.length} />
       <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-        {visibleCameras.map((item) => (
+        {cameras.map((item) => (
           <CameraTile key={item.camera.camera_id} item={item} selected={selectedCameraId === item.camera.camera_id} />
         ))}
       </div>
-      {extraCount > 0 ? (
-        <div className="mt-3 rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
-          Mostrando {visibleCameras.length} cámaras con foco operativo. Hay {extraCount} adicionales disponibles en la API.
-        </div>
+      {canLoadMore ? (
+        <button className="btn mt-3 w-full justify-center" type="button" onClick={onLoadMore} disabled={loadingMore}>
+          {loadingMore ? "Cargando cámaras..." : "Cargar más cámaras"}
+        </button>
       ) : null}
     </section>
   );

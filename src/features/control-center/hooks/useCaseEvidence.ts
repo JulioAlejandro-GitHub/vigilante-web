@@ -7,15 +7,17 @@ import { dedupeEvidenceMedia, extractEvidenceMedia, summarizeValue } from "../..
 interface UseCaseEvidenceOptions {
   caseDetail: CaseDetail | null;
   selectedEvent: TimelineEvent | null;
+  resolvedEvidence?: EvidenceMediaItem[];
   initialVisibleCount?: number;
 }
 
-export function useCaseEvidence({ caseDetail, selectedEvent, initialVisibleCount = 6 }: UseCaseEvidenceOptions) {
+export function useCaseEvidence({ caseDetail, selectedEvent, resolvedEvidence = [], initialVisibleCount = 6 }: UseCaseEvidenceOptions) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [visibleCount, setVisibleCount] = useState(initialVisibleCount);
 
   const items = useMemo(() => {
     const rawItems: EvidenceMediaItem[] = [];
+    rawItems.push(...resolvedEvidence);
     if (selectedEvent) {
       rawItems.push(...(selectedEvent.evidence_media ?? []), ...extractEvidenceMedia(selectedEvent.payload));
     }
@@ -32,7 +34,7 @@ export function useCaseEvidence({ caseDetail, selectedEvent, initialVisibleCount
       });
     }
     return sortEvidence(dedupeEvidenceMedia(rawItems).map(enrichEvidenceItem));
-  }, [caseDetail, selectedEvent]);
+  }, [caseDetail, resolvedEvidence, selectedEvent]);
 
   useEffect(() => {
     setSelectedIndex(0);
@@ -46,8 +48,8 @@ export function useCaseEvidence({ caseDetail, selectedEvent, initialVisibleCount
   }, [items.length, selectedIndex]);
 
   const selectedItem = items[selectedIndex] ?? null;
-  const visibleItems = items.slice(0, visibleCount);
-  const canShowMore = visibleCount < items.length;
+  const visibleItems = resolvedEvidence.length > 0 ? items : items.slice(0, visibleCount);
+  const canShowMore = resolvedEvidence.length === 0 && visibleCount < items.length;
 
   return {
     items,

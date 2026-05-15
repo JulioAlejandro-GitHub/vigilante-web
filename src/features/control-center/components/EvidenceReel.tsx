@@ -11,7 +11,9 @@ interface EvidenceReelProps {
   selectedItem: ControlCenterEvidenceItem | null;
   selectedIndex: number;
   loading: boolean;
+  loadingMore: boolean;
   canShowMore: boolean;
+  error: string | null;
   onSelect: (index: number) => void;
   onShowMore: () => void;
   onRefreshEvidence: () => void;
@@ -23,7 +25,9 @@ export function EvidenceReel({
   selectedItem,
   selectedIndex,
   loading,
+  loadingMore,
   canShowMore,
+  error,
   onSelect,
   onShowMore,
   onRefreshEvidence,
@@ -47,6 +51,15 @@ export function EvidenceReel({
         </div>
       ) : null}
 
+      {error ? (
+        <div className="mt-3 rounded border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {error}
+          <button className="btn mt-2" type="button" onClick={onRefreshEvidence}>
+            Reintentar evidencia
+          </button>
+        </div>
+      ) : null}
+
       {visibleItems.length > 0 ? (
         <div className="mt-3">
           <div className="flex gap-2 overflow-x-auto pb-2" role="listbox" aria-label="Evidencias visuales del caso">
@@ -60,8 +73,13 @@ export function EvidenceReel({
               />
             ))}
             {canShowMore ? (
-              <button type="button" className="flex w-28 shrink-0 flex-col items-center justify-center gap-2 rounded border border-dashed border-zinc-300 bg-zinc-50 text-sm font-medium text-zinc-600" onClick={onShowMore}>
-                Ver más
+              <button
+                type="button"
+                className="flex w-28 shrink-0 flex-col items-center justify-center gap-2 rounded border border-dashed border-zinc-300 bg-zinc-50 text-sm font-medium text-zinc-600"
+                onClick={onShowMore}
+                disabled={loadingMore}
+              >
+                {loadingMore ? "Cargando" : "Ver más"}
                 <ChevronRight className="h-4 w-4" aria-hidden="true" />
               </button>
             ) : null}

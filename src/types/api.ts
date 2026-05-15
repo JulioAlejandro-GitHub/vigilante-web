@@ -40,6 +40,14 @@ export interface EvidenceMediaItem {
   [key: string]: unknown;
 }
 
+export interface EvidenceMediaPage {
+  items: EvidenceMediaItem[];
+  limit: number;
+  offset: number;
+  next_offset: number | null;
+  total_refs: number;
+}
+
 export interface DashboardSummary {
   total_cases: number;
   open_cases: number;
@@ -279,4 +287,6 @@ export interface TimelineListParams {
   site_id?: string;
   case_id?: string;
   limit?: number;
+  offset?: number;
+  include_evidence?: boolean;
 }

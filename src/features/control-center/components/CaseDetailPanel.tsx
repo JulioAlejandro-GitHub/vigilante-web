@@ -20,8 +20,8 @@ interface CaseDetailPanelProps {
 
 export function CaseDetailPanel({ selectedGroup, caseBundle, onChanged }: CaseDetailPanelProps) {
   const selectedEvent = selectedGroup?.event ?? null;
-  const { detail, loading, refreshing, error, refresh } = caseBundle;
-  const evidence = useCaseEvidence({ caseDetail: detail, selectedEvent });
+  const { detail, timeline, evidence: resolvedEvidence, loading, refreshing, error, evidenceError, refresh } = caseBundle;
+  const evidence = useCaseEvidence({ caseDetail: detail, selectedEvent, resolvedEvidence });
 
   if (!selectedEvent) {
     return (
@@ -108,16 +108,26 @@ export function CaseDetailPanel({ selectedGroup, caseBundle, onChanged }: CaseDe
         visibleItems={evidence.visibleItems}
         selectedItem={evidence.selectedItem}
         selectedIndex={evidence.selectedIndex}
-        loading={loading || refreshing}
-        canShowMore={evidence.canShowMore}
+        loading={caseBundle.evidenceLoading || loading || refreshing}
+        canShowMore={caseBundle.evidenceHasMore || evidence.canShowMore}
         onSelect={evidence.setSelectedIndex}
-        onShowMore={evidence.showMore}
+        onShowMore={caseBundle.evidenceHasMore ? caseBundle.loadMoreEvidence : evidence.showMore}
         onRefreshEvidence={refresh}
+        loadingMore={caseBundle.evidenceLoading || caseBundle.evidenceLoadingMore}
+        error={evidenceError}
       />
 
       <RiskRadar caseDetail={detail} selectedEvent={selectedEvent} evidence={evidence.items} />
 
-      {detail ? <CaseTimeline events={detail.timeline.length ? detail.timeline : activeGroup.groupedEvents} /> : null}
+      {detail ? (
+        <CaseTimeline
+          events={timeline.length ? timeline : activeGroup.groupedEvents}
+          loading={caseBundle.timelineLoading}
+          loadingMore={caseBundle.timelineLoadingMore}
+          canLoadMore={caseBundle.timelineHasMore}
+          onLoadMore={caseBundle.loadMoreTimeline}
+        />
+      ) : null}
 
       <OperatorActions
         caseId={detail?.case_id ?? null}

@@ -17,34 +17,44 @@ interface UseCameraStreamsOptions {
   enabled?: boolean;
 }
 
-export function useCameraStreams(events: TimelineEvent[], { pollMs = 30000, limit = 100, enabled = true }: UseCameraStreamsOptions = {}) {
+export function useCameraStreams(events: TimelineEvent[], { pollMs = 30000, limit = 6, enabled = true }: UseCameraStreamsOptions = {}) {
   const [cameras, setCameras] = useState<ControlCenterCamera[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextOffset, setNextOffset] = useState<number | null>(0);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(
-    async (mode: "initial" | "refresh" = "refresh") => {
+    async (mode: "initial" | "refresh" | "more" = "refresh", requestedOffset = 0) => {
       if (!enabled) {
         setCameras([]);
         setLoading(false);
         setRefreshing(false);
+        setLoadingMore(false);
+        setNextOffset(0);
         setError(null);
         return;
       }
       if (mode === "initial") {
         setLoading(true);
+      } else if (mode === "more") {
+        setLoadingMore(true);
       } else {
         setRefreshing(true);
       }
       setError(null);
       try {
-        setCameras(await controlCenterApi.listCameras(limit));
+        const offset = mode === "more" ? requestedOffset : 0;
+        const next = await controlCenterApi.listCameras(limit, offset);
+        setNextOffset(next.length >= limit ? offset + next.length : null);
+        setCameras((current) => (mode === "more" ? dedupeCameras([...current, ...next]) : next));
       } catch (caught) {
         setError(asErrorMessage(caught));
       } finally {
         setLoading(false);
         setRefreshing(false);
+        setLoadingMore(false);
       }
     },
     [enabled, limit],
@@ -74,9 +84,29 @@ export function useCameraStreams(events: TimelineEvent[], { pollMs = 30000, limi
     tiles,
     loading,
     refreshing,
+    loadingMore,
+    hasMore: nextOffset !== null,
     error,
     refresh: () => void load("refresh"),
+    loadMore: () => {
+      if (nextOffset !== null && !loadingMore) {
+        void load("more", nextOffset);
+      }
+    },
   };
+}
+
+function dedupeCameras(cameras: ControlCenterCamera[]) {
+  const seen = new Set<string>();
+  const deduped: ControlCenterCamera[] = [];
+  for (const camera of cameras) {
+    if (seen.has(camera.camera_id)) {
+      continue;
+    }
+    seen.add(camera.camera_id);
+    deduped.push(camera);
+  }
+  return deduped;
 }
 
 function buildCameraTiles(cameras: ControlCenterCamera[], events: TimelineEvent[]): ControlCenterCameraTile[] {

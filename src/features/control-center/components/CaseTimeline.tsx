@@ -6,9 +6,13 @@ import { formatDateTime, shortId } from "../../../utils/format";
 
 interface CaseTimelineProps {
   events: TimelineEvent[];
+  loading: boolean;
+  loadingMore: boolean;
+  canLoadMore: boolean;
+  onLoadMore: () => void;
 }
 
-export function CaseTimeline({ events }: CaseTimelineProps) {
+export function CaseTimeline({ events, loading, loadingMore, canLoadMore, onLoadMore }: CaseTimelineProps) {
   const chronological = [...events].sort((left, right) => new Date(left.event_ts).getTime() - new Date(right.event_ts).getTime());
   const cameras = Array.from(new Set(events.map((event) => event.camera_id).filter(Boolean)));
 
@@ -28,6 +32,13 @@ export function CaseTimeline({ events }: CaseTimelineProps) {
               <Camera className="h-3.5 w-3.5" aria-hidden="true" />
               {shortId(cameraId)}
             </span>
+          ))}
+        </div>
+      ) : null}
+      {loading ? (
+        <div className="mt-3 space-y-2">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="h-12 animate-pulse rounded bg-zinc-100" />
           ))}
         </div>
       ) : null}
@@ -52,6 +63,11 @@ export function CaseTimeline({ events }: CaseTimelineProps) {
           </div>
         ))}
       </div>
+      {canLoadMore ? (
+        <button className="btn mt-3 w-full justify-center" type="button" onClick={onLoadMore} disabled={loadingMore}>
+          {loadingMore ? "Cargando cronología..." : "Cargar más cronología"}
+        </button>
+      ) : null}
     </section>
   );
 }

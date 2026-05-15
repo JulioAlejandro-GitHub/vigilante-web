@@ -115,6 +115,20 @@ function installFetch(events: TimelineEvent[], cases: Record<string, CaseDetail>
       if (url.includes("/api/v1/timeline")) {
         return jsonResponse(events);
       }
+      const caseEvidenceMatch = url.match(/\/api\/v1\/cases\/([^/?]+)\/evidence/);
+      if (caseEvidenceMatch) {
+        return jsonResponse({
+          items: cases[caseEvidenceMatch[1]]?.evidence_media ?? [],
+          limit: 6,
+          offset: 0,
+          next_offset: null,
+          total_refs: cases[caseEvidenceMatch[1]]?.evidence_media?.length ?? 0,
+        });
+      }
+      const caseTimelineMatch = url.match(/\/api\/v1\/cases\/([^/?]+)\/timeline/);
+      if (caseTimelineMatch) {
+        return jsonResponse(cases[caseTimelineMatch[1]]?.timeline ?? []);
+      }
       const caseMatch = url.match(/\/api\/v1\/cases\/([^/?]+)/);
       if (caseMatch) {
         return jsonResponse(cases[caseMatch[1]]);
@@ -176,9 +190,21 @@ describe("ControlCenterPage", () => {
     expect(await screen.findByText("Camera Lobby")).toBeInTheDocument();
     expect(screen.getByText("Camera Door")).toBeInTheDocument();
     expect(screen.getAllByText("Critical door event").length).toBeGreaterThan(0);
+    expect(screen.getByText("Seleccione un evento para ver el caso y su evidencia visual.")).toBeInTheDocument();
+    expect(fetchUrls().some((url) => url.includes("/api/v1/cases/case-2"))).toBe(false);
+
+    const timelineUrl = fetchUrls().find((url) => url.includes("/api/v1/timeline?"));
+    expect(timelineUrl).toContain("limit=20");
+    expect(timelineUrl).toContain("include_evidence=false");
+    expect(fetchUrls().find((url) => url.includes("/api/v1/cameras?"))).toContain("limit=6");
+
+    fireEvent.click(screen.getAllByText("Critical door event")[0]);
+
     expect(await screen.findByText("CASE-2")).toBeInTheDocument();
     expect(screen.getByText("Evidencia visual evaluada")).toBeInTheDocument();
     expect(screen.getByText("Acciones del operador")).toBeInTheDocument();
+    await waitFor(() => expect(fetchUrls().some((url) => url.includes("/api/v1/cases/case-2?") && url.includes("expand=summary"))).toBe(true));
+    expect(fetchUrls().some((url) => url.includes("/api/v1/cases/case-2/evidence") && url.includes("limit=6"))).toBe(true);
 
     fireEvent.click(screen.getByText("Repeated observed subject"));
 
@@ -186,3 +212,7 @@ describe("ControlCenterPage", () => {
     expect(screen.getByText("Subject appeared near a restricted access point.")).toBeInTheDocument();
   });
 });
+
+function fetchUrls() {
+  return vi.mocked(fetch).mock.calls.map(([input]) => String(input));
+}

@@ -1,4 +1,4 @@
-export type QueryValue = string | number | null | undefined;
+export type QueryValue = string | number | boolean | null | undefined;
 
 export function buildQueryString(params: Record<string, QueryValue> | object): string {
   const search = new URLSearchParams();
