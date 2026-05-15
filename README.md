@@ -48,20 +48,9 @@ MEDIA_SERVICE_PUBLIC_BASE_URL=http://127.0.0.1:8110 \
 PYTHONPATH=. uvicorn app.main:app --host 127.0.0.1 --port 8001
 ```
 
-Para login local, sembrar los usuarios demo del backend si todavía no existen:
-
-```bash
-cd ../vigilante-api
-source .venv/bin/activate
-PYTHONPATH=. DEMO_AUTH_PASSWORD=demo123 python scripts/seed_demo_auth.py
-```
-
-Usuarios demo esperados por el seed local:
-
-- `julio` / `demo123`: rol `analyst`, scope demo org/site 1.
-- `maria` / `demo123`: rol `supervisor`, scopes demo org/site 1 y 2.
-
-El password demo puede cambiarse antes de ejecutar el seed usando `DEMO_AUTH_PASSWORD`.
+Para login, la BD de `vigilante-api` debe tener usuarios reales en
+`auth.app_user` con roles y scopes válidos. La web no depende de datos
+artificiales.
 
 ## Instalación y ejecución
 
@@ -93,67 +82,6 @@ Validación visual esperada con media local:
 - ver `Temporal clips` cuando `vigilante-api` expone `clip_available=true`;
 - reproducir el MP4 derivado con controles nativos del navegador;
 - confirmar fallback textual cuando solo existan `evidence_refs` o cuando la imagen falle.
-
-### Smoke real de camera recommendations
-
-El smoke operacional `npm run smoke:camera-recommendations` valida el workflow real desde `/camera-recommendations` contra el stack local:
-
-- siembra una recomendación controlada en `vigilante-recognition/.runtime/metrics/recommendations.jsonl`;
-- entra a la web con auth real;
-- abre detalle y preview;
-- aprueba y aplica desde la UI;
-- verifica por API que solo cambió `api.camera.metadata.recognition.face_tuning.face_quality_threshold`;
-- espera que ingestion refresque `camera_runtime_config`;
-- escribe un `run_id` nuevo en `.local-logs/run/smoke-correlation.json`;
-- espera un evento `recognition_event_ready` correlacionado que use la config nueva;
-- ejecuta rollback desde la UI y confirma que la metadata volvió.
-
-Preparación:
-
-```bash
-cd ../GIT
-./vigilante_stack.sh prepare-smoke-camera
-./vigilante_stack.sh up --clean
-
-cd vigilante-web
-npm install
-npx playwright install chromium
-npm run smoke:camera-recommendations
-```
-
-Variables útiles:
-
-- `VIGILANTE_API_BASE_URL`, default `http://127.0.0.1:8001`
-- `VIGILANTE_WEB_BASE_URL`, default `http://127.0.0.1:5173`
-- `VIGILANTE_INGESTION_HEALTH_URL`, default `http://127.0.0.1:8090`
-- `VIGILANTE_SMOKE_USERNAME` / `VIGILANTE_SMOKE_PASSWORD`, default `julio` / `demo123`
-- `VIGILANTE_RECOMMENDATION_CAMERA_ID` o `REAL_CAMERA_ID` para fijar la cámara objetivo
-- `VIGILANTE_SMOKE_CAMERA_STATE_PATH`, default `../.local-logs/run/smoke-camera.env`
-- `RECOGNITION_RECOMMENDATIONS_PATH` si el API lee otra store JSONL
-- `VIGILANTE_SMOKE_SKIP_ROLLBACK=true` solo para depurar apply sin revertir
-
-Si no hay variable explícita, el smoke usa primero
-`.local-logs/run/smoke-camera.env` y después busca una cámara visible con
-`api.camera.metadata.smoke.is_smoke_ready=true`.
-
-Salida esperada:
-
-```text
-recommendation_id=...
-camera_id=...
-approved=true
-applied=true
-metadata_updated=true
-pipeline_reconsumed=true
-correlation_verified=true
-rollback=true
-```
-
-El spec falla con causas explícitas como `api_not_ready`, `web_not_ready`,
-`smoke_camera_not_found`, `smoke_camera_not_visible_in_api`,
-`smoke_camera_not_active_in_ingestion`, `smoke_camera_rtsp_not_publishing`,
-`recommendation_not_found`, `metadata_not_updated`,
-`pipeline_not_reconsumed`, `correlation_not_verified` o `rollback_failed`.
 
 ## Rutas
 
@@ -559,9 +487,7 @@ npm run dev
 
 `vigilante-web` no tiene runtime de servidor propio más allá de Vite en local.
 La política INFO/DEBUG aplica en los servicios Python (`api`, `media`,
-`ingestion`, `recognition`). Los smokes E2E del frontend mantienen salida
-compacta con IDs como `recommendation_id` y no imprimen payloads completos salvo
-que el propio test se ejecute con tooling de debug.
+`ingestion`, `recognition`).
 
 ## Pendientes
 
