@@ -4,9 +4,11 @@ import { ActiveCasePanel } from "./components/ActiveCasePanel";
 import { LiveCameraGrid } from "./components/LiveCameraGrid";
 import { LiveEventTimeline } from "./components/LiveEventTimeline";
 import { OperationalHeader } from "./components/OperationalHeader";
+import { useCameraLiveTiles } from "./hooks/useCameraLiveTiles";
 import { useCameraStreams } from "./hooks/useCameraStreams";
 import { useControlCenterCases } from "./hooks/useControlCenterCases";
 import { useControlCenterEvents } from "./hooks/useControlCenterEvents";
+import { useLiveCameraFrames } from "./hooks/useLiveCameraFrames";
 import { useOperationalSummary } from "./hooks/useOperationalSummary";
 import type { ControlCenterEventGroup } from "./types/controlCenter.types";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
@@ -26,6 +28,12 @@ export function ControlCenterPage() {
   const cameraState = useCameraStreams(eventState.events, { enabled: canView });
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const selectedGroup = selectedGroupId ? eventState.groups.find((group) => group.id === selectedGroupId) ?? null : null;
+  const selectedCameraId = selectedGroup?.event.camera_id ?? cameraState.tiles[0]?.camera.camera_id ?? null;
+  const liveFrameState = useLiveCameraFrames(cameraState.cameras, {
+    enabled: canView && !cameraState.loading,
+    selectedCameraId,
+  });
+  const liveTiles = useCameraLiveTiles(cameraState.tiles, liveFrameState.framesByCameraId);
   const caseBundle = useControlCenterCases({
     caseId: canView ? selectedGroup?.event.case_id ?? null : null,
     sourceEventId: canView ? selectedGroup?.event.source_event_id ?? null : null,
@@ -45,6 +53,7 @@ export function ControlCenterPage() {
     overview.refresh();
     eventState.refresh();
     cameraState.refresh();
+    liveFrameState.refresh();
     caseBundle.refresh();
   }
 
@@ -61,25 +70,26 @@ export function ControlCenterPage() {
     <div className="space-y-4">
       <OperationalHeader
         overview={overview}
-        cameras={cameraState.tiles}
+        cameras={liveTiles}
         events={eventState.groups}
         currentUser={currentUser}
-        lastUpdatedAt={eventState.lastUpdatedAt}
+        lastUpdatedAt={liveFrameState.lastUpdatedAt ?? eventState.lastUpdatedAt}
         onRefresh={refreshAll}
-        refreshing={eventState.refreshing || cameraState.refreshing || overview.loading || caseBundle.refreshing}
+        refreshing={eventState.refreshing || cameraState.refreshing || liveFrameState.refreshing || overview.loading || caseBundle.refreshing}
       />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_430px] 2xl:grid-cols-[minmax(0,1fr)_470px]">
         <div className="min-w-0 space-y-4">
           <LiveCameraGrid
-            cameras={cameraState.tiles}
-            selectedCameraId={selectedGroup?.event.camera_id ?? null}
+            cameras={liveTiles}
+            selectedCameraId={liveFrameState.activeCameraId}
             loading={cameraState.loading}
             error={cameraState.error}
-            onRetry={cameraState.refresh}
+            onRetry={refreshAll}
             canLoadMore={cameraState.hasMore}
             loadingMore={cameraState.loadingMore}
             onLoadMore={cameraState.loadMore}
+            liveBudget={liveFrameState.budget}
           />
 
           <ActiveCasePanel selectedGroup={selectedGroup} caseBundle={caseBundle} onChanged={refreshAll} />

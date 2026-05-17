@@ -1,4 +1,4 @@
-import { Activity, Camera, ImageOff, Radio, WifiOff } from "lucide-react";
+import { Activity, Camera, ImageOff, PauseCircle, Radio, ScanFace, WifiOff } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { CameraStatusBadge, ConfidenceBadge, formatRelativeTime } from "./StatusBadges";
@@ -15,6 +15,9 @@ export function CameraTile({ item, selected }: CameraTileProps) {
   const [imageError, setImageError] = useState(false);
   const displayName = item.camera.name || item.camera.external_camera_key || shortId(item.camera.camera_id);
   const priorityClass = priorityTone(item.priority?.tier);
+  const frameAgeLabel = item.liveFrame?.latest_frame_at ? formatRelativeTime(item.liveFrame.latest_frame_at) : null;
+  const hasLiveFrame = Boolean(item.liveFrame?.latest_frame_ref);
+  const recognitionProcessed = Boolean(item.latestEvent);
 
   useEffect(() => {
     setImageError(false);
@@ -33,8 +36,8 @@ export function CameraTile({ item, selected }: CameraTileProps) {
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-zinc-400">
-            {item.status === "offline" ? <WifiOff className="h-7 w-7" aria-hidden="true" /> : <ImageOff className="h-7 w-7" aria-hidden="true" />}
-            <span className="text-xs font-medium">{item.reason || "Sin snapshot firmado disponible"}</span>
+            {emptyStateIcon(item.status)}
+            <span className="text-xs font-medium">{statusReasonLabel(item.reason, item.status)}</span>
           </div>
         )}
 
@@ -61,20 +64,30 @@ export function CameraTile({ item, selected }: CameraTileProps) {
           <CameraStatusBadge status={item.status} />
         </div>
         <div className="absolute right-2 top-2 flex max-w-[65%] flex-wrap justify-end gap-1">
-          <span className="inline-flex items-center gap-1 rounded bg-zinc-950/80 px-2 py-1 text-xs font-semibold text-white">
-            <Radio className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" />
-            vivo
-          </span>
+          {hasLiveFrame ? (
+            <span className="inline-flex items-center gap-1 rounded bg-zinc-950/80 px-2 py-1 text-xs font-semibold text-white">
+              <Radio className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" />
+              frame {frameAgeLabel}
+            </span>
+          ) : null}
           {item.priority ? <span className={`rounded px-2 py-1 text-xs font-semibold ${priorityClass}`}>{item.priority.label}</span> : null}
           {selected ? <span className="rounded bg-teal-500 px-2 py-1 text-xs font-semibold text-white">activo</span> : null}
         </div>
         {item.latestEvent ? (
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-zinc-950 via-zinc-950/75 to-transparent p-2 pt-8 text-white">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase text-zinc-300">
-              <Activity className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" />
+              <ScanFace className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" />
               {item.priority?.eventLabel ?? item.latestEvent.event_type}
             </div>
             <div className="mt-0.5 line-clamp-1 text-xs text-zinc-100">{visualEventSummary(item.latestEvent, item.latestEvent.summary)}</div>
+          </div>
+        ) : hasLiveFrame ? (
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-zinc-950 via-zinc-950/70 to-transparent p-2 pt-8 text-white">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase text-zinc-300">
+              <Activity className="h-3.5 w-3.5 text-amber-300" aria-hidden="true" />
+              Sin procesamiento reciente
+            </div>
+            <div className="mt-0.5 line-clamp-1 text-xs text-zinc-100">Frame vivo disponible; recognition aún no publica insight.</div>
           </div>
         ) : null}
       </div>
@@ -92,8 +105,16 @@ export function CameraTile({ item, selected }: CameraTileProps) {
         </div>
         <div className="grid grid-cols-3 gap-2 text-xs">
           <Metric label="FPS" value={item.fps === null ? "—" : item.fps.toFixed(item.fps % 1 === 0 ? 0 : 1)} />
-          <Metric label="Lat." value={item.latencyMs === null ? "—" : `${Math.round(item.latencyMs)}ms`} />
-          <Metric label="Último" value={formatRelativeTime(item.lastSeenAt)} />
+          <Metric label="Frame" value={frameAgeLabel ?? formatRelativeTime(item.lastSeenAt)} />
+          <Metric label="Proc." value={recognitionProcessed ? formatRelativeTime(item.latestEvent?.event_ts) : "pend."} />
+        </div>
+        <div className="flex flex-wrap gap-1">
+          <span className={`rounded border px-1.5 py-0.5 text-[11px] font-medium ${hasLiveFrame ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-zinc-200 bg-zinc-50 text-zinc-600"}`}>
+            {hasLiveFrame ? "imagen ingestion" : "sin imagen live"}
+          </span>
+          <span className={`rounded border px-1.5 py-0.5 text-[11px] font-medium ${recognitionProcessed ? "border-teal-200 bg-teal-50 text-teal-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+            {recognitionProcessed ? "recognition listo" : "recognition pendiente"}
+          </span>
         </div>
         {item.priority?.tags.length ? (
           <div className="flex flex-wrap gap-1">
@@ -107,6 +128,31 @@ export function CameraTile({ item, selected }: CameraTileProps) {
       </div>
     </article>
   );
+}
+
+function emptyStateIcon(status: ControlCenterCameraTile["status"]) {
+  if (status === "offline") return <WifiOff className="h-7 w-7" aria-hidden="true" />;
+  if (status === "not_started_concurrency") return <PauseCircle className="h-7 w-7" aria-hidden="true" />;
+  return <ImageOff className="h-7 w-7" aria-hidden="true" />;
+}
+
+function statusReasonLabel(reason: string | null, status: ControlCenterCameraTile["status"]) {
+  if (status === "not_started_concurrency") {
+    return "No iniciada por límite de concurrencia";
+  }
+  if (reason === "no_ingested_frame") {
+    return "Sin snapshot reciente de ingestion";
+  }
+  if (reason === "latest_frame_is_stale") {
+    return "Último frame antiguo";
+  }
+  if (reason === "latest_frame_too_old") {
+    return "Cámara sin frames recientes";
+  }
+  if (reason === "No recent processed event available") {
+    return "Sin procesamiento reciente";
+  }
+  return reason || "Sin snapshot reciente";
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

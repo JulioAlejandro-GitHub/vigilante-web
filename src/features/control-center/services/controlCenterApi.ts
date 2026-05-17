@@ -1,7 +1,7 @@
 import { api } from "../../../api/vigilanteApi";
 import { buildQueryString, getJson } from "../../../api/client";
 import type { CaseDetail, DashboardSummary, EvidenceMediaPage, HealthResponse, TimelineEvent, TimelineListParams } from "../../../types/api";
-import type { ControlCenterCamera } from "../types/controlCenter.types";
+import type { ControlCenterCamera, ControlCenterLatestFrame } from "../types/controlCenter.types";
 
 export interface ControlCenterEventParams extends TimelineListParams {
   limit?: number;
@@ -20,6 +20,8 @@ export const controlCenterApi = {
   dashboardSummary: (assignedTo?: string): Promise<DashboardSummary> => api.dashboardSummary(assignedTo),
   listCameras: (limit = 6, offset = 0): Promise<ControlCenterCamera[]> =>
     getJson<ControlCenterCamera[]>(`/api/v1/cameras${buildQueryString({ limit, offset })}`),
+  listCameraLatestFrames: (cameraIds: string[], includeMedia = true): Promise<ControlCenterLatestFrame[]> =>
+    getJson<ControlCenterLatestFrame[]>(`/api/v1/cameras/latest-frames${buildLatestFramesQuery(cameraIds, includeMedia)}`),
   listRecentEvents: (params: ControlCenterEventParams = {}): Promise<TimelineEvent[]> =>
     api.listTimeline({ limit: 20, offset: 0, include_evidence: false, ...params }),
   getCaseSummary: (caseId: string): Promise<CaseDetail> => api.getCase(caseId, { expand: "summary", include_evidence: false, recent_limit: 1 }),
@@ -35,3 +37,15 @@ export const controlCenterApi = {
 };
 
 export type { HealthResponse };
+
+function buildLatestFramesQuery(cameraIds: string[], includeMedia: boolean) {
+  const search = new URLSearchParams();
+  cameraIds.forEach((cameraId) => {
+    if (cameraId) {
+      search.append("camera_id", cameraId);
+    }
+  });
+  search.set("include_media", String(includeMedia));
+  const query = search.toString();
+  return query ? `?${query}` : "";
+}

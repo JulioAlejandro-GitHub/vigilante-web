@@ -138,6 +138,8 @@ function buildCameraTiles(cameras: ControlCenterCamera[], events: TimelineEvent[
       latestEvent,
       priority: latestEvent ? buildPriorityInsight(latestEvent, cameraEvents) : null,
       snapshotUrl: latestEvent ? eventEvidencePreview(latestEvent) : secureMetadataImageUrl(metadata),
+      snapshotSource: latestEvent ? "recognition" : secureMetadataImageUrl(metadata) ? "camera_metadata" : null,
+      liveFrame: null,
       overlays: latestEvent ? extractOverlays(latestEvent) : [],
       reason: statusReason(camera, latestEvent, metadata),
     };

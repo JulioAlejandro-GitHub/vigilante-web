@@ -74,6 +74,52 @@ function installFetch(events: TimelineEvent[], cases: Record<string, CaseDetail>
           pending_case_suggestions: 1,
         });
       }
+      if (url.includes("/api/v1/cameras/latest-frames")) {
+        const parsed = new URL(url, "http://localhost");
+        const cameraIds = parsed.searchParams.getAll("camera_id");
+        return jsonResponse(
+          cameraIds.map((cameraId) =>
+            cameraId === "camera-4"
+              ? {
+                  camera_id: cameraId,
+                  latest_frame_ref: null,
+                  latest_frame_at: null,
+                  frame_age_seconds: null,
+                  event_id: null,
+                  content_type: null,
+                  width: null,
+                  height: null,
+                  state: "not_started_concurrency",
+                  reason: "not_started_by_concurrency_limit",
+                  media: null,
+                  ingestion: { camera_id: cameraId, is_desired_active: true, worker_state: "stopped", last_error: "not_started_by_concurrency_limit" },
+                  metadata: {},
+                }
+              : {
+                  camera_id: cameraId,
+                  latest_frame_ref: `s3://vigilante-frames/${cameraId}/latest.jpg`,
+                  latest_frame_at: "2026-01-01T10:05:10Z",
+                  frame_age_seconds: 1,
+                  event_id: `evt-frame-${cameraId}`,
+                  content_type: "image/jpeg",
+                  width: 1280,
+                  height: 720,
+                  state: "live",
+                  reason: null,
+                  media: evidenceMediaFixture({
+                    ref: `s3://vigilante-frames/${cameraId}/latest.jpg`,
+                    media_id: `media-latest-${cameraId}`,
+                    camera_id: cameraId,
+                    captured_at: "2026-01-01T10:05:10Z",
+                    thumbnail_url: `/api/v1/media/media-latest-${cameraId}/thumbnail`,
+                    content_url: `/api/v1/media/media-latest-${cameraId}/content`,
+                  }),
+                  ingestion: null,
+                  metadata: { sample_index: 42 },
+                },
+          ),
+        );
+      }
       if (url.includes("/api/v1/cameras")) {
         return jsonResponse([
           {
@@ -109,6 +155,40 @@ function installFetch(events: TimelineEvent[], cases: Record<string, CaseDetail>
             subtype: null,
             camera_user: "operator",
             metadata: { status: "degraded" },
+          },
+          {
+            camera_id: "camera-3",
+            external_camera_key: "cam-garage",
+            site_id: "site-1",
+            zone_id: null,
+            name: "Camera Garage",
+            is_active: true,
+            source_type: "rtsp",
+            camera_hostname: "camera-3.local",
+            camera_port: 554,
+            camera_path: null,
+            rtsp_transport: "tcp",
+            channel: null,
+            subtype: null,
+            camera_user: "operator",
+            metadata: {},
+          },
+          {
+            camera_id: "camera-4",
+            external_camera_key: "cam-backyard",
+            site_id: "site-1",
+            zone_id: null,
+            name: "Camera Backyard",
+            is_active: true,
+            source_type: "rtsp",
+            camera_hostname: "camera-4.local",
+            camera_port: 554,
+            camera_path: null,
+            rtsp_transport: "tcp",
+            channel: null,
+            subtype: null,
+            camera_user: "operator",
+            metadata: {},
           },
         ]);
       }
@@ -224,6 +304,13 @@ describe("ControlCenterPage", () => {
     expect(screen.getByText("Cola viva de eventos")).toBeInTheDocument();
     expect(await screen.findByText("Camera Lobby")).toBeInTheDocument();
     expect(screen.getByText("Camera Door")).toBeInTheDocument();
+    expect(await screen.findByText("Camera Garage")).toBeInTheDocument();
+    expect(await screen.findByText("Camera Backyard")).toBeInTheDocument();
+    expect(screen.getByTestId("operational-header")).toBeInTheDocument();
+    expect(screen.queryByText("Vista operativa para cámaras vivas, eventos priorizados, evidencia visual y decisiones del operador.")).not.toBeInTheDocument();
+    expect((await screen.findAllByText("imagen ingestion")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("recognition pendiente")).length).toBeGreaterThan(0);
+    expect(await screen.findByText("no iniciada por concurrencia")).toBeInTheDocument();
 
     const cards = await screen.findAllByTestId("priority-event-card");
     expect(cards[0]).toHaveTextContent("Conflicto de identidad");
@@ -234,6 +321,9 @@ describe("ControlCenterPage", () => {
     expect(timelineUrl).toContain("limit=20");
     expect(timelineUrl).toContain("include_evidence=false");
     expect(fetchUrls().find((url) => url.includes("/api/v1/cameras?"))).toContain("limit=6");
+    const latestFrameUrl = fetchUrls().find((url) => url.includes("/api/v1/cameras/latest-frames"));
+    expect(latestFrameUrl).toContain("camera_id=camera-1");
+    expect(latestFrameUrl).toContain("camera_id=camera-3");
 
     expect(await screen.findByText("CASE-2")).toBeInTheDocument();
     expect(screen.getByText("Evidencia visual principal")).toBeInTheDocument();

@@ -1,7 +1,7 @@
 import type { CaseDetail, DashboardSummary, EvidenceMediaItem, HealthResponse, TimelineEvent } from "../../../types/api";
 import type { Permission } from "../../../types/session";
 
-export type ControlCenterCameraStatus = "online" | "degraded" | "offline";
+export type ControlCenterCameraStatus = "live" | "online" | "degraded" | "stale" | "offline" | "no_snapshot" | "not_started_concurrency";
 
 export interface ControlCenterCamera {
   camera_id: string;
@@ -42,8 +42,40 @@ export interface ControlCenterCameraTile {
   latestEvent: TimelineEvent | null;
   priority: ControlCenterPriorityInsight | null;
   snapshotUrl: string | null;
+  snapshotSource: "ingestion" | "recognition" | "camera_metadata" | null;
+  liveFrame: ControlCenterLatestFrame | null;
   overlays: ControlCenterOverlay[];
   reason: string | null;
+}
+
+export interface ControlCenterIngestionState {
+  camera_id: string;
+  is_desired_active: boolean | null;
+  worker_state: string | null;
+  last_started_at: string | null;
+  last_connected_at: string | null;
+  last_frame_at: string | null;
+  last_publish_at: string | null;
+  frames_captured: number | null;
+  events_published: number | null;
+  last_error: string | null;
+  updated_at: string | null;
+}
+
+export interface ControlCenterLatestFrame {
+  camera_id: string;
+  latest_frame_ref: string | null;
+  latest_frame_at: string | null;
+  frame_age_seconds: number | null;
+  event_id: string | null;
+  content_type: string | null;
+  width: number | null;
+  height: number | null;
+  state: ControlCenterCameraStatus | "no_snapshot" | string;
+  reason: string | null;
+  media: EvidenceMediaItem | null;
+  ingestion: ControlCenterIngestionState | null;
+  metadata: Record<string, unknown>;
 }
 
 export type ControlCenterPriorityTier = "critical" | "attention" | "watch" | "normal";

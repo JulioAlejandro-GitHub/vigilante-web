@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Circle, Clock, ShieldAlert } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Circle, Clock, PauseCircle, Radio, ShieldAlert, WifiOff } from "lucide-react";
 
 import type { ControlCenterCameraStatus } from "../types/controlCenter.types";
 import type { Severity } from "../../../types/api";
@@ -17,18 +17,13 @@ export function SeverityBadge({ severity }: { severity: Severity | null | undefi
 }
 
 export function CameraStatusBadge({ status }: { status: ControlCenterCameraStatus }) {
-  const classes =
-    status === "online"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-      : status === "degraded"
-        ? "border-amber-200 bg-amber-50 text-amber-800"
-        : "border-zinc-300 bg-zinc-100 text-zinc-600";
-  const Icon = status === "online" ? CheckCircle2 : status === "degraded" ? Clock : AlertTriangle;
+  const classes = cameraStatusClasses(status);
+  const Icon = cameraStatusIcon(status);
 
   return (
     <span className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-xs font-semibold ${classes}`}>
       <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-      {status}
+      {cameraStatusLabel(status)}
     </span>
   );
 }
@@ -77,6 +72,34 @@ export function formatRelativeTime(value: string | null | undefined) {
   if (hours < 24) return `${hours}h`;
   const days = Math.round(hours / 24);
   return `${days}d`;
+}
+
+function cameraStatusClasses(status: ControlCenterCameraStatus) {
+  if (status === "live") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (status === "online") return "border-teal-200 bg-teal-50 text-teal-800";
+  if (status === "degraded" || status === "stale") return "border-amber-200 bg-amber-50 text-amber-800";
+  if (status === "not_started_concurrency") return "border-sky-200 bg-sky-50 text-sky-800";
+  if (status === "no_snapshot") return "border-zinc-300 bg-zinc-100 text-zinc-600";
+  return "border-rose-200 bg-rose-50 text-rose-800";
+}
+
+function cameraStatusIcon(status: ControlCenterCameraStatus) {
+  if (status === "live") return Radio;
+  if (status === "online") return CheckCircle2;
+  if (status === "degraded" || status === "stale") return Clock;
+  if (status === "not_started_concurrency") return PauseCircle;
+  if (status === "no_snapshot") return AlertTriangle;
+  return WifiOff;
+}
+
+function cameraStatusLabel(status: ControlCenterCameraStatus) {
+  if (status === "live") return "live";
+  if (status === "online") return "online";
+  if (status === "degraded") return "degraded";
+  if (status === "stale") return "sin snapshot reciente";
+  if (status === "not_started_concurrency") return "no iniciada por concurrencia";
+  if (status === "no_snapshot") return "sin snapshot";
+  return "offline";
 }
 
 export function normalizeSeverityRank(severity: string | null | undefined) {

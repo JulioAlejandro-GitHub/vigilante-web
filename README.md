@@ -45,6 +45,8 @@ cd ../vigilante-api
 source .venv/bin/activate
 MEDIA_SERVICE_BASE_URL=http://127.0.0.1:8110 \
 MEDIA_SERVICE_PUBLIC_BASE_URL=http://127.0.0.1:8110 \
+INGESTION_OUTBOX_PATH=../vigilante-ingestion/outbox/frame_ingested.jsonl \
+INGESTION_HEALTH_BASE_URL=http://127.0.0.1:8088 \
 PYTHONPATH=. uvicorn app.main:app --host 127.0.0.1 --port 8001
 ```
 
@@ -77,7 +79,9 @@ npm run dev
 Validación visual esperada con media local:
 
 - abrir `/control-center` y confirmar que la primera pantalla se comporta como Centro de Control live-first;
-- ver mosaico de cámaras, cola lateral priorizada, caso/sujeto activo, evidencia principal, insight de recognition y acciones;
+- ver mosaico de cámaras con frame reciente desde ingestion antes de recognition, cola lateral priorizada, caso/sujeto activo, evidencia principal, insight de recognition y acciones;
+- confirmar que los badges de recognition aparecen encima/asociados al frame live cuando el evento procesado ya existe;
+- confirmar estados `live`, `online`, `degraded`, `sin snapshot`, `offline` y `no iniciada por concurrencia` cuando ingestion reporta health;
 - confirmar que eventos críticos, revisión manual, conflictos de identidad, recurrencia y matches aparecen por encima de eventos recientes de baja relevancia;
 - abrir un caso, manual review, case suggestion o timeline event con `evidence_media`;
 - ver preview liviano usando `thumbnail_url` en el panel `Visual evidence`;

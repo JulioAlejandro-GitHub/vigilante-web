@@ -5,7 +5,7 @@ Modulo visual aislado en `src/features/control-center`. La ruta `/control-center
 ## UX implementada
 
 - Header operativo con modo vivo, estado API, operador, sitio, organización y timestamp de actualización.
-- Mosaico principal de 6 cámaras con snapshot seguro, estado, actividad reciente, score y etiquetas recognition.
+- Mosaico principal de 6 cámaras con frame reciente desde ingestion, estado live, score y etiquetas recognition como capa posterior.
 - Timeline lateral como cola viva de atención, ordenada por prioridad operacional y no solo por fecha.
 - Panel de caso/sujeto activo auto-seleccionado desde el evento más relevante.
 - Evidencia principal grande, reel lazy y comparación rápida de evidencias relacionadas.
@@ -17,6 +17,7 @@ Modulo visual aislado en `src/features/control-center`. La ruta `/control-center
 - `GET /health`: estado de servidor mostrado en el header.
 - `GET /api/v1/dashboard/summary`: metricas operativas del header.
 - `GET /api/v1/cameras?limit=6&offset=...`: camaras autorizadas, paginadas por el mosaico visible. La respuesta ya viene sanitizada por `vigilante-api`.
+- `GET /api/v1/cameras/latest-frames?camera_id=...&include_media=true`: ultimo frame ingestado por camara visible, resuelto via media sin depender de timeline/recognition.
 - `GET /api/v1/timeline?limit=20&offset=...&include_evidence=false`: eventos procesados recientes. El listado no resuelve media en bloque.
 - `GET /api/v1/timeline/{source_event_id}/evidence?limit=1&offset=0`: preview visual solo para los eventos priorizados que declaran evidencia y no traen media resuelta.
 - `GET /api/v1/cases/{case_id}?expand=summary&include_evidence=false`: resumen barato del caso seleccionado.
@@ -56,7 +57,14 @@ El frontend no construye URLs de media. Usa `content_url`, `thumbnail_url`, `pro
 
 ## Streaming / live feel
 
-No existe endpoint seguro de streaming en `vigilante-api`. `CameraTile` queda preparado para `snapshotUrl` seguro y actualmente usa la evidencia visual mas reciente de la camara o metadatos con claves explicitas `signed_snapshot_url`, `temporary_snapshot_url` o `signed_thumbnail_url`. No se leen `stream_url` ni rutas internas permanentes.
+No se usa streaming pesado. El mosaico consulta en batch `latest-frames` solo para las camaras visibles:
+
+- camara activa: hasta `VITE_LIVE_TILE_ACTIVE_MAX_FPS` fps, default `1`;
+- camaras secundarias: hasta `VITE_LIVE_TILE_BACKGROUND_MAX_FPS` fps, default `0.4`;
+- maximo concurrente: `VITE_LIVE_TILE_MAX_CONCURRENT_REFRESHES`, default `2`;
+- si llegan varios frames entre renders, el cliente conserva el `latest_frame_at` mas nuevo.
+
+La imagen del tile sale primero de ingestion (`frame.ingested`). Los eventos de recognition siguen llegando por timeline con `include_evidence=false` y solo enriquecen el tile con badges, labels, confidence y overlays cuando existen. Si una camara no fue iniciada por limite de concurrencia, el tile muestra el estado `no iniciada por concurrencia` cuando API recibe ese estado desde health de ingestion.
 
 ## Permisos
 
