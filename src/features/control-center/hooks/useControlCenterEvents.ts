@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { controlCenterApi } from "../services/controlCenterApi";
-import type { ControlCenterEventGroup } from "../types/controlCenter.types";
+import { usePriorityEvents } from "./usePriorityEvents";
 import type { TimelineEvent, TimelineListParams } from "../../../types/api";
 import { asErrorMessage } from "../../../utils/format";
 
@@ -19,6 +19,7 @@ export function useControlCenterEvents({ limit = 20, pollMs = 15000, filters = {
   const [loadingMore, setLoadingMore] = useState(false);
   const [nextOffset, setNextOffset] = useState<number | null>(0);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const filtersKey = JSON.stringify(filters);
 
   const load = useCallback(
@@ -45,6 +46,7 @@ export function useControlCenterEvents({ limit = 20, pollMs = 15000, filters = {
         const next = await controlCenterApi.listRecentEvents({ limit, offset, include_evidence: false, ...filters });
         setNextOffset(next.length >= limit ? offset + next.length : null);
         setEvents((current) => sortEventsDesc(dedupeEvents(mode === "more" ? [...current, ...next] : next)));
+        setLastUpdatedAt(new Date().toISOString());
       } catch (caught) {
         setError(asErrorMessage(caught));
       } finally {
@@ -74,6 +76,7 @@ export function useControlCenterEvents({ limit = 20, pollMs = 15000, filters = {
         if (active) {
           setEvents(sortEventsDesc(dedupeEvents(next)));
           setNextOffset(next.length >= limit ? next.length : null);
+          setLastUpdatedAt(new Date().toISOString());
         }
       })
       .catch((caught) => {
@@ -107,7 +110,7 @@ export function useControlCenterEvents({ limit = 20, pollMs = 15000, filters = {
     return () => window.clearInterval(interval);
   }, [load, pollMs]);
 
-  const groups = useMemo(() => groupEventsByCase(events), [events]);
+  const groups = usePriorityEvents(events, { enabled });
 
   return {
     events,
@@ -117,6 +120,7 @@ export function useControlCenterEvents({ limit = 20, pollMs = 15000, filters = {
     loadingMore,
     hasMore: nextOffset !== null,
     error,
+    lastUpdatedAt,
     refresh: () => void load("refresh"),
     loadMore: () => {
       if (nextOffset !== null && !loadingMore) {
@@ -144,24 +148,4 @@ function dedupeEvents(events: TimelineEvent[]) {
 
 function sortEventsDesc(events: TimelineEvent[]) {
   return [...events].sort((left, right) => new Date(right.event_ts).getTime() - new Date(left.event_ts).getTime());
-}
-
-function groupEventsByCase(events: TimelineEvent[]): ControlCenterEventGroup[] {
-  const groups = new Map<string, TimelineEvent[]>();
-
-  for (const event of sortEventsDesc(events)) {
-    const key = event.case_id ? `case:${event.case_id}` : `event:${event.source_event_id}`;
-    const current = groups.get(key) ?? [];
-    current.push(event);
-    groups.set(key, current);
-  }
-
-  return Array.from(groups.entries())
-    .map(([id, groupedEvents]) => ({
-      id,
-      event: groupedEvents[0],
-      groupedEvents,
-      relatedCount: groupedEvents.length,
-    }))
-    .sort((left, right) => new Date(right.event.event_ts).getTime() - new Date(left.event.event_ts).getTime());
 }

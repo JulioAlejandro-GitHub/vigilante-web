@@ -112,6 +112,21 @@ function installFetch(events: TimelineEvent[], cases: Record<string, CaseDetail>
           },
         ]);
       }
+      const timelineEvidenceMatch = url.match(/\/api\/v1\/timeline\/([^/?]+)\/evidence/);
+      if (timelineEvidenceMatch) {
+        return jsonResponse({
+          items: [
+            evidenceMediaFixture({
+              media_id: `preview-${timelineEvidenceMatch[1]}`,
+              camera_id: events.find((event) => event.source_event_id === timelineEvidenceMatch[1])?.camera_id ?? "camera-1",
+            }),
+          ],
+          limit: 1,
+          offset: 0,
+          next_offset: null,
+          total_refs: 1,
+        });
+      }
       if (url.includes("/api/v1/timeline")) {
         return jsonResponse(events);
       }
@@ -147,23 +162,41 @@ describe("ControlCenterPage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders cameras, grouped events, case detail and visual evidence", async () => {
+  it("renders the live control center with prioritized events, evidence, insights and actions", async () => {
     const events = [
       timelineEventFixture({
         source_event_id: "event-2",
-        event_ts: "2026-01-01T10:02:00Z",
+        event_type: "recognition.manual_review_required",
+        event_ts: "2026-01-01T10:00:00Z",
         case_id: "case-2",
         camera_id: "camera-2",
-        severity: "critical",
-        summary: "Critical door event",
-        evidence_media: [evidenceMediaFixture({ media_id: "media-door-001", camera_id: "camera-2" })],
+        severity: "high",
+        summary: "Identity conflict at restricted door",
+        payload: {
+          review_id: "review-2",
+          review_type: "identity_conflict",
+          source_event_type: "recognition.manual_review_required",
+          confidence: 0.93,
+          evidence_count: 3,
+          face_detection: { status: "detected", usable: true, confidence: 0.93 },
+          semantic_descriptor: { summary: "Persona con gorra roja y chaqueta azul cerca de acceso restringido." },
+        },
+        evidence_media: [],
       }),
       timelineEventFixture({
         source_event_id: "event-1",
-        event_ts: "2026-01-01T10:00:00Z",
+        event_ts: "2026-01-01T10:05:00Z",
         case_id: "case-1",
         camera_id: "camera-1",
-        summary: "Repeated observed subject",
+        severity: "low",
+        confidence: 0.66,
+        summary: "Routine lobby movement",
+        payload: {
+          confidence: 0.66,
+          evidence_count: 1,
+          semantic_descriptor: { summary: "Movimiento humano rutinario en lobby." },
+        },
+        evidence_media: [],
       }),
     ];
     installFetch(events, {
@@ -171,14 +204,14 @@ describe("ControlCenterPage", () => {
       "case-2": caseDetail({
         case_id: "case-2",
         case_code: "CASE-2",
-        title: "Critical door event",
-        severity: "critical",
+        title: "Identity conflict at restricted door",
+        severity: "high",
         source_event_id: "event-2",
         primary_camera_id: "camera-2",
         primary_subject_id: "subject-2",
         case_payload: {
-          suggested_reason: "Critical door event requires human action.",
-          semantic_summary: "Person matched near a restricted door.",
+          suggested_reason: "Identity conflict requires human action.",
+          semantic_summary: "Persona con gorra roja y chaqueta azul cerca de acceso restringido.",
         },
         evidence_media: [evidenceMediaFixture({ media_id: "media-case-002", camera_id: "camera-2" })],
       }),
@@ -186,30 +219,41 @@ describe("ControlCenterPage", () => {
 
     renderWithAppProviders(<ControlCenterPage />, "/control-center");
 
-    expect(await screen.findByText("Vigilante Control Center")).toBeInTheDocument();
+    expect(await screen.findByText("Centro de Control Vigilante")).toBeInTheDocument();
+    expect(screen.getByText("Mosaico vivo de cámaras")).toBeInTheDocument();
+    expect(screen.getByText("Cola viva de eventos")).toBeInTheDocument();
     expect(await screen.findByText("Camera Lobby")).toBeInTheDocument();
     expect(screen.getByText("Camera Door")).toBeInTheDocument();
-    expect(screen.getAllByText("Critical door event").length).toBeGreaterThan(0);
-    expect(screen.getByText("Seleccione un evento para ver el caso y su evidencia visual.")).toBeInTheDocument();
-    expect(fetchUrls().some((url) => url.includes("/api/v1/cases/case-2"))).toBe(false);
+
+    const cards = await screen.findAllByTestId("priority-event-card");
+    expect(cards[0]).toHaveTextContent("Conflicto de identidad");
+    expect(cards[0]).toHaveAttribute("data-priority-tier", "critical");
+    expect(cards[1]).toHaveTextContent("Sugerencia de caso");
 
     const timelineUrl = fetchUrls().find((url) => url.includes("/api/v1/timeline?"));
     expect(timelineUrl).toContain("limit=20");
     expect(timelineUrl).toContain("include_evidence=false");
     expect(fetchUrls().find((url) => url.includes("/api/v1/cameras?"))).toContain("limit=6");
 
-    fireEvent.click(screen.getAllByText("Critical door event")[0]);
-
     expect(await screen.findByText("CASE-2")).toBeInTheDocument();
-    expect(screen.getByText("Evidencia visual evaluada")).toBeInTheDocument();
+    expect(screen.getByText("Evidencia visual principal")).toBeInTheDocument();
+    expect(screen.getByText("Insight de recognition")).toBeInTheDocument();
     expect(screen.getByText("Acciones del operador")).toBeInTheDocument();
+    expect(screen.getAllByText("Persona con gorra roja y chaqueta azul cerca de acceso restringido.").length).toBeGreaterThan(0);
+    expect(screen.getByText("Vincular perfil")).toBeInTheDocument();
+    expect(screen.getByText("Marcar sospechoso")).toBeInTheDocument();
+    expect(screen.getByText("Merge caso")).toBeInTheDocument();
+    expect(screen.getByText("Resolver benigno")).toBeInTheDocument();
+    expect(screen.getByText("Abrir revisión")).toBeInTheDocument();
+    expect(screen.getByText("Ver detalle completo")).toBeInTheDocument();
     await waitFor(() => expect(fetchUrls().some((url) => url.includes("/api/v1/cases/case-2?") && url.includes("expand=summary"))).toBe(true));
     expect(fetchUrls().some((url) => url.includes("/api/v1/cases/case-2/evidence") && url.includes("limit=6"))).toBe(true);
+    await waitFor(() => expect(fetchUrls().some((url) => url.includes("/api/v1/timeline/event-2/evidence") && url.includes("limit=1"))).toBe(true));
 
-    fireEvent.click(screen.getByText("Repeated observed subject"));
+    fireEvent.click(cards[1]);
 
     await waitFor(() => expect(screen.getByText("CASE-1")).toBeInTheDocument());
-    expect(screen.getByText("Subject appeared near a restricted access point.")).toBeInTheDocument();
+    expect(screen.getAllByText("Movimiento humano rutinario en lobby.").length).toBeGreaterThan(0);
   });
 });
 

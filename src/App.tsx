@@ -20,9 +20,9 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route element={<ProtectedRoute />}>
+        <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route index element={<Navigate to="/control-center" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/control-center" element={<ControlCenterPage />} />
           <Route path="/my-work" element={<MyWorkPage />} />
@@ -37,7 +37,7 @@ export default function App() {
           <Route path="/timeline/:sourceEventId" element={<TimelineEventDetailPage />} />
         </Route>
       </Route>
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/control-center" replace />} />
     </Routes>
   );
 }

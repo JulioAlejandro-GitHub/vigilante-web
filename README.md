@@ -76,6 +76,9 @@ npm run dev
 
 Validación visual esperada con media local:
 
+- abrir `/control-center` y confirmar que la primera pantalla se comporta como Centro de Control live-first;
+- ver mosaico de cámaras, cola lateral priorizada, caso/sujeto activo, evidencia principal, insight de recognition y acciones;
+- confirmar que eventos críticos, revisión manual, conflictos de identidad, recurrencia y matches aparecen por encima de eventos recientes de baja relevancia;
 - abrir un caso, manual review, case suggestion o timeline event con `evidence_media`;
 - ver preview liviano usando `thumbnail_url` en el panel `Visual evidence`;
 - abrir el viewer ampliado con `content_url` original y metadata;
@@ -86,7 +89,8 @@ Validación visual esperada con media local:
 ## Rutas
 
 - `/login` es pública
-- `/` redirige a `/dashboard` después de una sesión válida
+- `/` redirige a `/control-center` después de una sesión válida
+- `/control-center`
 - `/dashboard`
 - `/my-work`
 - `/cases`

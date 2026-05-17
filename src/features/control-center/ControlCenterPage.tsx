@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { CameraGrid } from "./components/CameraGrid";
-import { CaseDetailPanel } from "./components/CaseDetailPanel";
-import { ControlCenterHeader } from "./components/ControlCenterHeader";
-import { EventTimeline } from "./components/EventTimeline";
+import { ActiveCasePanel } from "./components/ActiveCasePanel";
+import { LiveCameraGrid } from "./components/LiveCameraGrid";
+import { LiveEventTimeline } from "./components/LiveEventTimeline";
+import { OperationalHeader } from "./components/OperationalHeader";
 import { useCameraStreams } from "./hooks/useCameraStreams";
 import { useControlCenterCases } from "./hooks/useControlCenterCases";
 import { useControlCenterEvents } from "./hooks/useControlCenterEvents";
-import { useControlCenterOverview } from "./hooks/useControlCenterOverview";
+import { useOperationalSummary } from "./hooks/useOperationalSummary";
 import type { ControlCenterEventGroup } from "./types/controlCenter.types";
 import { useCurrentUser } from "../../hooks/useCurrentUser";
 
@@ -21,7 +21,7 @@ export function ControlCenterPage() {
     }),
     [currentUser.organization_id, currentUser.site_id],
   );
-  const overview = useControlCenterOverview({ enabled: canView, assignedTo: currentUser.username });
+  const overview = useOperationalSummary({ enabled: canView, assignedTo: currentUser.username });
   const eventState = useControlCenterEvents({ enabled: canView, filters });
   const cameraState = useCameraStreams(eventState.events, { enabled: canView });
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
@@ -32,12 +32,12 @@ export function ControlCenterPage() {
   });
 
   useEffect(() => {
-    if (!eventState.groups.length || !selectedGroupId) {
+    if (!eventState.groups.length) {
       setSelectedGroupId(null);
       return;
     }
-    if (!eventState.groups.some((group) => group.id === selectedGroupId)) {
-      setSelectedGroupId(null);
+    if (!selectedGroupId || !eventState.groups.some((group) => group.id === selectedGroupId)) {
+      setSelectedGroupId(eventState.groups[0].id);
     }
   }, [eventState.groups, selectedGroupId]);
 
@@ -59,17 +59,19 @@ export function ControlCenterPage() {
 
   return (
     <div className="space-y-4">
-      <ControlCenterHeader
+      <OperationalHeader
         overview={overview}
         cameras={cameraState.tiles}
         events={eventState.groups}
+        currentUser={currentUser}
+        lastUpdatedAt={eventState.lastUpdatedAt}
         onRefresh={refreshAll}
         refreshing={eventState.refreshing || cameraState.refreshing || overview.loading || caseBundle.refreshing}
       />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_460px] 2xl:grid-cols-[minmax(0,1fr)_500px]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_430px] 2xl:grid-cols-[minmax(0,1fr)_470px]">
         <div className="min-w-0 space-y-4">
-          <CameraGrid
+          <LiveCameraGrid
             cameras={cameraState.tiles}
             selectedCameraId={selectedGroup?.event.camera_id ?? null}
             loading={cameraState.loading}
@@ -79,7 +81,12 @@ export function ControlCenterPage() {
             loadingMore={cameraState.loadingMore}
             onLoadMore={cameraState.loadMore}
           />
-          <EventTimeline
+
+          <ActiveCasePanel selectedGroup={selectedGroup} caseBundle={caseBundle} onChanged={refreshAll} />
+        </div>
+
+        <div className="min-w-0 xl:sticky xl:top-20 xl:self-start">
+          <LiveEventTimeline
             events={eventState.groups}
             selectedId={selectedGroup?.id ?? null}
             loading={eventState.loading}
@@ -92,8 +99,6 @@ export function ControlCenterPage() {
             onLoadMore={eventState.loadMore}
           />
         </div>
-
-        <CaseDetailPanel selectedGroup={selectedGroup} caseBundle={caseBundle} onChanged={refreshAll} />
       </div>
     </div>
   );

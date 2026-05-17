@@ -57,7 +57,7 @@ export function useOperatorActions({ caseId, resourceContext, onChanged }: UseOp
     },
     {
       key: "merge_case",
-      label: "Unir caso",
+      label: "Merge caso",
       tone: "default",
       permission: null,
       critical: true,

@@ -7,6 +7,7 @@ import type {
   ControlCenterCameraTile,
   ControlCenterOverlay,
 } from "../types/controlCenter.types";
+import { buildPriorityInsight } from "../utils/priority";
 import type { TimelineEvent } from "../../../types/api";
 import { asErrorMessage } from "../../../utils/format";
 import { asRecord } from "../../../utils/evidence";
@@ -135,6 +136,7 @@ function buildCameraTiles(cameras: ControlCenterCamera[], events: TimelineEvent[
       latencyMs: numberFromMetadata(metadata, ["latency_ms", "last_latency_ms", "stream_latency_ms"]),
       lastSeenAt: latestEvent?.event_ts ?? stringFromMetadata(metadata, ["last_seen_at", "last_frame_at", "updated_at"]),
       latestEvent,
+      priority: latestEvent ? buildPriorityInsight(latestEvent, cameraEvents) : null,
       snapshotUrl: latestEvent ? eventEvidencePreview(latestEvent) : secureMetadataImageUrl(metadata),
       overlays: latestEvent ? extractOverlays(latestEvent) : [],
       reason: statusReason(camera, latestEvent, metadata),

@@ -21,8 +21,8 @@ export function AppShell() {
               <Menu className="h-4 w-4" />
             </button>
             <div className="min-w-0">
-              <div className="text-sm font-semibold text-zinc-950">Operations workspace</div>
-              <div className="truncate text-xs text-zinc-500">Cases, queues and audit timeline</div>
+              <div className="text-sm font-semibold text-zinc-950">Centro de Control</div>
+              <div className="truncate text-xs text-zinc-500">Monitoreo vivo, evidencia y acciones</div>
             </div>
             <div className="hidden sm:block">
               <CurrentUserMenu />
@@ -30,7 +30,7 @@ export function AppShell() {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-7xl px-4 py-5 sm:px-6 lg:py-8">
+        <main className="mx-auto w-full max-w-[1800px] px-4 py-5 sm:px-6 lg:py-6">
           <Outlet />
         </main>
       </div>

@@ -33,11 +33,11 @@ export function EvidenceReel({
   onRefreshEvidence,
 }: EvidenceReelProps) {
   return (
-    <section className="rounded border border-zinc-200 bg-white p-3">
+    <section className="rounded border border-zinc-200 bg-white p-4">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-zinc-950">Evidencia visual evaluada</h3>
-          <p className="mt-0.5 text-xs text-zinc-500">Reel ligero: miniaturas visibles y carga progresiva.</p>
+          <h3 className="text-sm font-semibold text-zinc-950">Evidencia visual principal</h3>
+          <p className="mt-0.5 text-xs text-zinc-500">Imagen grande para decidir; reel y evidencia relacionada cargan de forma progresiva.</p>
         </div>
         <span className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-semibold text-zinc-600">{items.length}</span>
       </div>

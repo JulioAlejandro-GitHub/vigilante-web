@@ -6,8 +6,8 @@ import { CurrentUserMenu } from "../session/CurrentUserMenu";
 import type { Permission } from "../../types/session";
 
 const navItems = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/control-center", label: "Centro de Control", icon: TowerControl, permission: "control-center:view" as Permission },
+  { to: "/dashboard", label: "Resumen", icon: LayoutDashboard },
   { to: "/my-work", label: "My Work", icon: ListChecks },
   { to: "/cases", label: "Cases", icon: FileText },
   { to: "/manual-reviews", label: "Manual reviews", icon: ClipboardList },
@@ -32,7 +32,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         </div>
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold text-zinc-950">vigilante-web</div>
-          <div className="truncate text-xs text-zinc-500">Analyst operations</div>
+          <div className="truncate text-xs text-zinc-500">Control operativo</div>
         </div>
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">

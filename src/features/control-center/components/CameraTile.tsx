@@ -1,8 +1,9 @@
-import { Camera, ImageOff, WifiOff } from "lucide-react";
+import { Activity, Camera, ImageOff, Radio, WifiOff } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { CameraStatusBadge, ConfidenceBadge, formatRelativeTime } from "./StatusBadges";
-import type { ControlCenterCameraTile } from "../types/controlCenter.types";
+import type { ControlCenterCameraTile, ControlCenterPriorityTier } from "../types/controlCenter.types";
+import { visualEventSummary } from "../utils/priority";
 import { shortId } from "../../../utils/format";
 
 interface CameraTileProps {
@@ -13,6 +14,7 @@ interface CameraTileProps {
 export function CameraTile({ item, selected }: CameraTileProps) {
   const [imageError, setImageError] = useState(false);
   const displayName = item.camera.name || item.camera.external_camera_key || shortId(item.camera.camera_id);
+  const priorityClass = priorityTone(item.priority?.tier);
 
   useEffect(() => {
     setImageError(false);
@@ -58,7 +60,23 @@ export function CameraTile({ item, selected }: CameraTileProps) {
         <div className="absolute left-2 top-2">
           <CameraStatusBadge status={item.status} />
         </div>
-        {selected ? <div className="absolute right-2 top-2 rounded bg-teal-500 px-2 py-1 text-xs font-semibold text-white">evento seleccionado</div> : null}
+        <div className="absolute right-2 top-2 flex max-w-[65%] flex-wrap justify-end gap-1">
+          <span className="inline-flex items-center gap-1 rounded bg-zinc-950/80 px-2 py-1 text-xs font-semibold text-white">
+            <Radio className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" />
+            vivo
+          </span>
+          {item.priority ? <span className={`rounded px-2 py-1 text-xs font-semibold ${priorityClass}`}>{item.priority.label}</span> : null}
+          {selected ? <span className="rounded bg-teal-500 px-2 py-1 text-xs font-semibold text-white">activo</span> : null}
+        </div>
+        {item.latestEvent ? (
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-zinc-950 via-zinc-950/75 to-transparent p-2 pt-8 text-white">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase text-zinc-300">
+              <Activity className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" />
+              {item.priority?.eventLabel ?? item.latestEvent.event_type}
+            </div>
+            <div className="mt-0.5 line-clamp-1 text-xs text-zinc-100">{visualEventSummary(item.latestEvent, item.latestEvent.summary)}</div>
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-2 p-3">
@@ -77,6 +95,15 @@ export function CameraTile({ item, selected }: CameraTileProps) {
           <Metric label="Lat." value={item.latencyMs === null ? "—" : `${Math.round(item.latencyMs)}ms`} />
           <Metric label="Último" value={formatRelativeTime(item.lastSeenAt)} />
         </div>
+        {item.priority?.tags.length ? (
+          <div className="flex flex-wrap gap-1">
+            {item.priority.tags.slice(0, 3).map((tag) => (
+              <span key={tag} className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600">
+                {tag}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
     </article>
   );
@@ -89,4 +116,11 @@ function Metric({ label, value }: { label: string; value: string }) {
       <div className="truncate font-semibold text-zinc-800">{value}</div>
     </div>
   );
+}
+
+function priorityTone(tier: ControlCenterPriorityTier | undefined) {
+  if (tier === "critical") return "bg-rose-600 text-white";
+  if (tier === "attention") return "bg-amber-500 text-zinc-950";
+  if (tier === "watch") return "bg-sky-500 text-white";
+  return "bg-zinc-800 text-white";
 }

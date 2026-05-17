@@ -40,9 +40,31 @@ export interface ControlCenterCameraTile {
   latencyMs: number | null;
   lastSeenAt: string | null;
   latestEvent: TimelineEvent | null;
+  priority: ControlCenterPriorityInsight | null;
   snapshotUrl: string | null;
   overlays: ControlCenterOverlay[];
   reason: string | null;
+}
+
+export type ControlCenterPriorityTier = "critical" | "attention" | "watch" | "normal";
+
+export interface ControlCenterPriorityInsight {
+  score: number;
+  tier: ControlCenterPriorityTier;
+  label: string;
+  eventLabel: string;
+  primaryReason: string;
+  reasons: string[];
+  tags: string[];
+  recognitionSummary: string;
+  sightingsCount: number;
+  cameraCount: number;
+  hasVisualEvidence: boolean;
+  requiresManualReview: boolean;
+  isIdentityConflict: boolean;
+  isRecurrent: boolean;
+  hasUsefulMatch: boolean;
+  hasUsableUnknownFace: boolean;
 }
 
 export interface ControlCenterEventGroup {
@@ -50,6 +72,8 @@ export interface ControlCenterEventGroup {
   event: TimelineEvent;
   groupedEvents: TimelineEvent[];
   relatedCount: number;
+  priority: ControlCenterPriorityInsight;
+  previewEvidence: EvidenceMediaItem | null;
 }
 
 export interface ControlCenterOverview {

@@ -60,7 +60,7 @@ export function useControlCenterCases({ caseId, sourceEventId }: UseControlCente
     async (offset: number, mode: "initial" | "more" = "initial") => {
       if (!caseId) {
         setTimeline([]);
-        setTimelineNextOffset(0);
+        setTimelineNextOffset(null);
         setTimelineLoading(false);
         setTimelineLoadingMore(false);
         return;
@@ -92,7 +92,7 @@ export function useControlCenterCases({ caseId, sourceEventId }: UseControlCente
     async (offset: number, mode: "initial" | "more" = "initial") => {
       if (!caseId && !sourceEventId) {
         setEvidence([]);
-        setEvidenceNextOffset(0);
+        setEvidenceNextOffset(null);
         setEvidenceLoading(false);
         setEvidenceLoadingMore(false);
         setEvidenceError(null);
