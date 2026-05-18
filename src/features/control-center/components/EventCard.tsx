@@ -1,7 +1,9 @@
 import { AlertTriangle, Camera, Eye, FileText, ImageOff, UserRound } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { ConfidenceBadge, formatRelativeTime, SeverityBadge } from "./StatusBadges";
 import type { ControlCenterEventGroup, ControlCenterPriorityTier } from "../types/controlCenter.types";
+import { cameraFocusUrl, evidenceFocusUrl } from "../utils/navigation";
 import { subjectDisplayName, visualEventSummary } from "../utils/priority";
 import { shortId } from "../../../utils/format";
 
@@ -17,10 +19,11 @@ export function EventCard({ item, selected, onSelect }: EventCardProps) {
   const previewUrl = preview?.thumbnail_url || preview?.content_url || preview?.proxy_url || null;
   const identity = subjectDisplayName(event);
   const tone = priorityTone(item.priority.tier);
+  const cameraUrl = cameraFocusUrl(event.camera_id);
+  const evidenceUrl = evidenceFocusUrl(event, event.camera_id);
 
   return (
-    <button
-      type="button"
+    <article
       data-testid="priority-event-card"
       data-priority-tier={item.priority.tier}
       className={`w-full overflow-hidden rounded border text-left transition ${
@@ -28,9 +31,16 @@ export function EventCard({ item, selected, onSelect }: EventCardProps) {
       }`}
       onClick={onSelect}
     >
-      <div className={`h-1.5 ${tone.bar}`} />
-      <div className="flex gap-3 p-3">
-        <div className="relative h-24 w-32 shrink-0 overflow-hidden rounded bg-zinc-100">
+      <div className={`h-1 ${tone.bar}`} />
+      <button
+        type="button"
+        className="flex w-full gap-2.5 p-2.5 text-left"
+        onClick={(clickEvent) => {
+          clickEvent.stopPropagation();
+          onSelect();
+        }}
+      >
+        <div className="relative h-20 w-28 shrink-0 overflow-hidden rounded bg-zinc-100">
           {previewUrl ? (
             <img src={previewUrl} alt={`Evidencia del evento ${shortId(event.source_event_id)}`} className="h-full w-full object-cover" loading="lazy" />
           ) : (
@@ -45,25 +55,25 @@ export function EventCard({ item, selected, onSelect }: EventCardProps) {
           <div className="flex flex-wrap items-center gap-1.5">
             <SeverityBadge severity={event.severity} />
             <ConfidenceBadge value={event.confidence} />
-            <span className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-xs font-semibold ${tone.soft}`}>
+            <span className={`inline-flex items-center gap-1 rounded border px-1.5 py-1 text-xs font-semibold ${tone.soft}`}>
               <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
               score {item.priority.score}
             </span>
           </div>
-          <div className="mt-2 text-xs font-semibold uppercase text-zinc-500">{item.priority.eventLabel}</div>
+          <div className="mt-1.5 text-xs font-semibold uppercase text-zinc-500">{item.priority.eventLabel}</div>
           <div className="mt-1 flex min-w-0 items-center gap-2 text-sm font-semibold text-zinc-950">
             <UserRound className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden="true" />
             <span className="truncate">{identity}</span>
           </div>
-          <p className="mt-1 line-clamp-2 text-sm text-zinc-700">{visualEventSummary(event, event.summary)}</p>
-          <div className="mt-2 flex flex-wrap gap-1">
-            {item.priority.tags.slice(0, 4).map((tag) => (
+          <p className="mt-1 line-clamp-1 text-xs text-zinc-700">{visualEventSummary(event, event.summary)}</p>
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {item.priority.tags.slice(0, 2).map((tag) => (
               <span key={tag} className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600">
                 {tag}
               </span>
             ))}
           </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
             <span className="inline-flex items-center gap-1">
               <Camera className="h-3.5 w-3.5" aria-hidden="true" />
               {shortId(event.camera_id)}
@@ -81,8 +91,18 @@ export function EventCard({ item, selected, onSelect }: EventCardProps) {
             ) : null}
           </div>
         </div>
+      </button>
+      <div className="grid grid-cols-2 gap-2 px-2.5 pb-2.5">
+        <Link className="btn h-8 px-2 py-1 text-xs" to={cameraUrl} onClick={(clickEvent) => clickEvent.stopPropagation()}>
+          <Camera className="h-3.5 w-3.5" aria-hidden="true" />
+          Cámara
+        </Link>
+        <Link className="btn h-8 px-2 py-1 text-xs" to={evidenceUrl} onClick={(clickEvent) => clickEvent.stopPropagation()}>
+          <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+          Evidencia
+        </Link>
       </div>
-    </button>
+    </article>
   );
 }
 

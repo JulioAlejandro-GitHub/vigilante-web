@@ -73,19 +73,24 @@ export function LiveCameraGrid({ cameras, selectedCameraId, loading, error, onRe
 
 function SectionTitle({ count, loading, liveBudget }: { count: number; loading?: boolean; liveBudget: CameraLiveBudget }) {
   return (
-    <div className="mb-3 flex items-start justify-between gap-3">
-      <div>
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="min-w-0">
         <div className="flex items-center gap-2">
           <Radio className="h-4 w-4 text-emerald-600" aria-hidden="true" />
-          <h2 className="text-base font-semibold text-zinc-950">Mosaico vivo de cámaras</h2>
+          <h2 className="text-base font-semibold text-zinc-950">Cámaras live</h2>
         </div>
-        <p className="mt-0.5 text-xs text-zinc-500">
-          Frames ingestion primero; activa {formatFps(liveBudget.activeMaxFps)} fps, secundarias {formatFps(liveBudget.backgroundMaxFps)} fps.
-        </p>
       </div>
-      <span className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-semibold text-zinc-600">
-        {loading ? "cargando" : `${count} feeds`}
-      </span>
+      <div className="flex flex-wrap items-center justify-end gap-1.5">
+        <span className="rounded border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-semibold text-zinc-600">
+          {loading ? "cargando" : `${count} feeds`}
+        </span>
+        <span className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+          {formatFps(liveBudget.activeMaxFps)} fps foco
+        </span>
+        <span className="rounded border border-zinc-200 bg-white px-2 py-1 text-xs font-medium text-zinc-500">
+          {formatFps(liveBudget.backgroundMaxFps)} fps resto
+        </span>
+      </div>
     </div>
   );
 }

@@ -1,8 +1,10 @@
-import { Activity, Camera, ImageOff, PauseCircle, Radio, ScanFace, WifiOff } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Activity, Camera, FileText, ImageOff, PauseCircle, Radio, ScanFace, WifiOff } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { CameraStatusBadge, ConfidenceBadge, formatRelativeTime } from "./StatusBadges";
 import type { ControlCenterCameraTile, ControlCenterPriorityTier } from "../types/controlCenter.types";
+import { cameraFocusUrl, evidenceFocusUrl } from "../utils/navigation";
 import { visualEventSummary } from "../utils/priority";
 import { shortId } from "../../../utils/format";
 
@@ -13,31 +15,76 @@ interface CameraTileProps {
 
 export function CameraTile({ item, selected }: CameraTileProps) {
   const [imageError, setImageError] = useState(false);
+  const [displayUrl, setDisplayUrl] = useState<string | null>(item.snapshotUrl);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const requestedUrlRef = useRef<string | null>(item.snapshotUrl);
   const displayName = item.camera.name || item.camera.external_camera_key || shortId(item.camera.camera_id);
   const priorityClass = priorityTone(item.priority?.tier);
   const frameAgeLabel = item.liveFrame?.latest_frame_at ? formatRelativeTime(item.liveFrame.latest_frame_at) : null;
   const hasLiveFrame = Boolean(item.liveFrame?.latest_frame_ref);
   const recognitionProcessed = Boolean(item.latestEvent);
+  const cameraUrl = cameraFocusUrl(item.camera.camera_id);
+  const evidenceUrl = evidenceFocusUrl(item.latestEvent, item.camera.camera_id);
+  const placeholderLabel = item.snapshotUrl && !displayUrl && !imageError ? "Cargando frame" : statusReasonLabel(item.reason, item.status, hasLiveFrame);
 
   useEffect(() => {
     setImageError(false);
-  }, [item.snapshotUrl]);
+    const nextUrl = item.snapshotUrl;
+    requestedUrlRef.current = nextUrl;
+
+    if (!nextUrl) {
+      setDisplayUrl(null);
+      setImageLoaded(false);
+      return;
+    }
+    if (nextUrl === displayUrl) {
+      return;
+    }
+
+    const hasPreviousFrame = Boolean(displayUrl);
+    const image = new Image();
+    let cancelled = false;
+    image.onload = () => {
+      if (cancelled || requestedUrlRef.current !== nextUrl) {
+        return;
+      }
+      setDisplayUrl(nextUrl);
+      setImageLoaded(false);
+      window.requestAnimationFrame(() => setImageLoaded(true));
+    };
+    image.onerror = () => {
+      if (cancelled || requestedUrlRef.current !== nextUrl) {
+        return;
+      }
+      setImageError(!hasPreviousFrame);
+      setImageLoaded(true);
+    };
+    image.src = nextUrl;
+
+    return () => {
+      cancelled = true;
+    };
+  }, [displayUrl, item.snapshotUrl]);
 
   return (
     <article className={`overflow-hidden rounded border bg-white ${selected ? "border-teal-500 ring-2 ring-teal-200" : "border-zinc-200"}`}>
       <div className="relative aspect-video bg-zinc-950">
-        {item.snapshotUrl && !imageError ? (
+        {displayUrl && !imageError ? (
           <img
-            src={item.snapshotUrl}
-            alt={`Última evidencia visual de ${displayName}`}
-            className="h-full w-full object-cover"
+            src={displayUrl}
+            alt={`Frame reciente de ${displayName}`}
+            className={`h-full w-full object-cover transition duration-200 ease-out ${imageLoaded ? "opacity-100 blur-0" : "opacity-0 blur-sm"}`}
             loading="lazy"
+            onLoad={() => setImageLoaded(true)}
             onError={() => setImageError(true)}
           />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-zinc-400">
-            {emptyStateIcon(item.status)}
-            <span className="text-xs font-medium">{statusReasonLabel(item.reason, item.status)}</span>
+          <div className="flex h-full flex-col items-center justify-center gap-2 overflow-hidden px-4 text-center text-zinc-400">
+            <div className="absolute inset-0 animate-pulse bg-[linear-gradient(110deg,rgba(39,39,42,0.1),rgba(113,113,122,0.28),rgba(39,39,42,0.1))]" />
+            <div className="relative flex flex-col items-center justify-center gap-2">
+              {emptyStateIcon(item.status)}
+              <span className="text-xs font-medium">{placeholderLabel}</span>
+            </div>
           </div>
         )}
 
@@ -85,9 +132,9 @@ export function CameraTile({ item, selected }: CameraTileProps) {
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-zinc-950 via-zinc-950/70 to-transparent p-2 pt-8 text-white">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase text-zinc-300">
               <Activity className="h-3.5 w-3.5 text-amber-300" aria-hidden="true" />
-              Sin procesamiento reciente
+              Ingestion live
             </div>
-            <div className="mt-0.5 line-clamp-1 text-xs text-zinc-100">Frame vivo disponible; recognition aún no publica insight.</div>
+            <div className="mt-0.5 line-clamp-1 text-xs text-zinc-100">Recognition pendiente.</div>
           </div>
         ) : null}
       </div>
@@ -99,32 +146,36 @@ export function CameraTile({ item, selected }: CameraTileProps) {
               <Camera className="h-4 w-4 shrink-0 text-zinc-500" aria-hidden="true" />
               <span className="truncate">{displayName}</span>
             </div>
-            <div className="mt-0.5 text-xs text-zinc-500">{shortId(item.camera.camera_id)}</div>
+            <div className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-zinc-500">
+              <span>{shortId(item.camera.camera_id)}</span>
+              {item.priority ? <span>{item.priority.sightingsCount} avist.</span> : null}
+            </div>
           </div>
           <ConfidenceBadge value={item.latestEvent?.confidence} />
         </div>
-        <div className="grid grid-cols-3 gap-2 text-xs">
+        <div className="grid grid-cols-3 gap-1.5 text-xs">
           <Metric label="FPS" value={item.fps === null ? "—" : item.fps.toFixed(item.fps % 1 === 0 ? 0 : 1)} />
           <Metric label="Frame" value={frameAgeLabel ?? formatRelativeTime(item.lastSeenAt)} />
-          <Metric label="Proc." value={recognitionProcessed ? formatRelativeTime(item.latestEvent?.event_ts) : "pend."} />
+          <Metric label="Rec." value={recognitionProcessed ? formatRelativeTime(item.latestEvent?.event_ts) : "pend."} />
         </div>
         <div className="flex flex-wrap gap-1">
           <span className={`rounded border px-1.5 py-0.5 text-[11px] font-medium ${hasLiveFrame ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-zinc-200 bg-zinc-50 text-zinc-600"}`}>
-            {hasLiveFrame ? "imagen ingestion" : "sin imagen live"}
+            {hasLiveFrame ? "ingestion" : "sin frame"}
           </span>
           <span className={`rounded border px-1.5 py-0.5 text-[11px] font-medium ${recognitionProcessed ? "border-teal-200 bg-teal-50 text-teal-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
-            {recognitionProcessed ? "recognition listo" : "recognition pendiente"}
+            {recognitionProcessed ? "rec listo" : "rec pend."}
           </span>
         </div>
-        {item.priority?.tags.length ? (
-          <div className="flex flex-wrap gap-1">
-            {item.priority.tags.slice(0, 3).map((tag) => (
-              <span key={tag} className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600">
-                {tag}
-              </span>
-            ))}
-          </div>
-        ) : null}
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <Link className="btn h-8 px-2 py-1 text-xs" to={cameraUrl}>
+            <Camera className="h-3.5 w-3.5" aria-hidden="true" />
+            Ir a cámara
+          </Link>
+          <Link className="btn h-8 px-2 py-1 text-xs" to={evidenceUrl}>
+            <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+            Ir a evidencia
+          </Link>
+        </div>
       </div>
     </article>
   );
@@ -136,23 +187,32 @@ function emptyStateIcon(status: ControlCenterCameraTile["status"]) {
   return <ImageOff className="h-7 w-7" aria-hidden="true" />;
 }
 
-function statusReasonLabel(reason: string | null, status: ControlCenterCameraTile["status"]) {
+function statusReasonLabel(reason: string | null, status: ControlCenterCameraTile["status"], hasLiveFrame: boolean) {
+  if (hasLiveFrame) {
+    return "Frame recibido; media pendiente";
+  }
   if (status === "not_started_concurrency") {
     return "No iniciada por límite de concurrencia";
   }
   if (reason === "no_ingested_frame") {
-    return "Sin snapshot reciente de ingestion";
+    return "Esperando primer frame";
   }
   if (reason === "latest_frame_is_stale") {
-    return "Último frame antiguo";
+    return "Frame antiguo";
   }
   if (reason === "latest_frame_too_old") {
-    return "Cámara sin frames recientes";
+    return "Frame vencido";
+  }
+  if (reason === "camera_disabled") {
+    return "Cámara deshabilitada";
+  }
+  if (reason?.startsWith("ingestion_worker_")) {
+    return "Ingestion conectando";
   }
   if (reason === "No recent processed event available") {
-    return "Sin procesamiento reciente";
+    return "Esperando recognition";
   }
-  return reason || "Sin snapshot reciente";
+  return reason || "Sin frame disponible";
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

@@ -36,7 +36,13 @@ export function shouldAcceptLatestFrame(current: ControlCenterLatestFrame | unde
   const currentTs = timestamp(current.latest_frame_at);
   const nextTs = timestamp(next.latest_frame_at);
   if (nextTs === null) {
-    return currentTs === null;
+    if (currentTs === null) {
+      return true;
+    }
+    if (next.state === "offline" || next.reason === "camera_disabled") {
+      return true;
+    }
+    return Date.now() - currentTs > 5 * 60 * 1000;
   }
   if (currentTs === null) {
     return true;
@@ -45,10 +51,28 @@ export function shouldAcceptLatestFrame(current: ControlCenterLatestFrame | unde
 }
 
 export function latestFrameImageUrl(frame: ControlCenterLatestFrame | null | undefined) {
-  if (!frame?.media?.resolved) {
+  const mediaUrl = frame?.media?.thumbnail_url || frame?.media?.content_url || frame?.media?.proxy_url || null;
+  if (mediaUrl) {
+    return mediaUrl;
+  }
+  const metadataUrl = metadataImageUrl(frame?.metadata);
+  if (metadataUrl) {
+    return metadataUrl;
+  }
+  return null;
+}
+
+export function versionedLatestFrameImageUrl(frame: ControlCenterLatestFrame | null | undefined) {
+  const url = latestFrameImageUrl(frame);
+  if (!url) {
     return null;
   }
-  return frame.media.thumbnail_url || frame.media.content_url || frame.media.proxy_url || null;
+  const version = frame?.latest_frame_at || frame?.event_id || frame?.latest_frame_ref || null;
+  if (!version || !shouldVersionImageUrl(url)) {
+    return url;
+  }
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}live_frame=${encodeURIComponent(version)}`;
 }
 
 export function normalizeLatestFrameStatus(frame: ControlCenterLatestFrame | null | undefined): ControlCenterCameraStatus | null {
@@ -80,6 +104,33 @@ function timestamp(value: string | null | undefined) {
   }
   const parsed = new Date(value).getTime();
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function metadataImageUrl(metadata: Record<string, unknown> | null | undefined) {
+  if (!metadata) {
+    return null;
+  }
+  for (const key of ["thumbnail_url", "content_url", "proxy_url", "signed_snapshot_url", "temporary_snapshot_url", "signed_thumbnail_url"]) {
+    const value = metadata[key];
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function shouldVersionImageUrl(url: string) {
+  if (url.startsWith("/")) {
+    return true;
+  }
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    return new URL(url, window.location.origin).origin === window.location.origin;
+  } catch {
+    return false;
+  }
 }
 
 function readPositiveNumber(value: unknown, fallback: number) {

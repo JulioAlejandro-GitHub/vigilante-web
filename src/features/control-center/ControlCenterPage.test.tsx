@@ -299,18 +299,22 @@ describe("ControlCenterPage", () => {
 
     renderWithAppProviders(<ControlCenterPage />, "/control-center");
 
-    expect(await screen.findByText("Centro de Control Vigilante")).toBeInTheDocument();
-    expect(screen.getByText("Mosaico vivo de cámaras")).toBeInTheDocument();
-    expect(screen.getByText("Cola viva de eventos")).toBeInTheDocument();
+    expect(await screen.findByText("Centro de Control")).toBeInTheDocument();
+    expect(screen.getByText("Cámaras live")).toBeInTheDocument();
+    expect(screen.getByText("Eventos live")).toBeInTheDocument();
     expect(await screen.findByText("Camera Lobby")).toBeInTheDocument();
     expect(screen.getByText("Camera Door")).toBeInTheDocument();
     expect(await screen.findByText("Camera Garage")).toBeInTheDocument();
     expect(await screen.findByText("Camera Backyard")).toBeInTheDocument();
     expect(screen.getByTestId("operational-header")).toBeInTheDocument();
     expect(screen.queryByText("Vista operativa para cámaras vivas, eventos priorizados, evidencia visual y decisiones del operador.")).not.toBeInTheDocument();
-    expect((await screen.findAllByText("imagen ingestion")).length).toBeGreaterThan(0);
-    expect((await screen.findAllByText("recognition pendiente")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("ingestion")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("rec pend.")).length).toBeGreaterThan(0);
     expect(await screen.findByText("no iniciada por concurrencia")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Ir a cámara/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: /Ir a evidencia/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: /Ir a cámara/i })[0]).toHaveAttribute("href", "/timeline?camera_id=camera-1&event_group=operational");
+    expect(screen.getAllByRole("link", { name: /Ir a evidencia/i })[0]).toHaveAttribute("href", "/cases/case-1?tab=evidence");
 
     const cards = await screen.findAllByTestId("priority-event-card");
     expect(cards[0]).toHaveTextContent("Conflicto de identidad");

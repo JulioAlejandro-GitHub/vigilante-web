@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 
 import type { ControlCenterCameraTile, ControlCenterLatestFrame } from "../types/controlCenter.types";
-import { latestFrameImageUrl, normalizeLatestFrameStatus } from "../utils/cameraLiveBudget";
+import { normalizeLatestFrameStatus, versionedLatestFrameImageUrl } from "../utils/cameraLiveBudget";
 
 export function useCameraLiveTiles(
   tiles: ControlCenterCameraTile[],
@@ -14,7 +14,7 @@ export function useCameraLiveTiles(
         if (!liveFrame) {
           return tile;
         }
-        const liveImageUrl = latestFrameImageUrl(liveFrame);
+        const liveImageUrl = versionedLatestFrameImageUrl(liveFrame);
         const liveStatus = normalizeLatestFrameStatus(liveFrame);
         return {
           ...tile,

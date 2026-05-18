@@ -67,7 +67,7 @@ export function ControlCenterPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <OperationalHeader
         overview={overview}
         cameras={liveTiles}
@@ -78,8 +78,8 @@ export function ControlCenterPage() {
         refreshing={eventState.refreshing || cameraState.refreshing || liveFrameState.refreshing || overview.loading || caseBundle.refreshing}
       />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_430px] 2xl:grid-cols-[minmax(0,1fr)_470px]">
-        <div className="min-w-0 space-y-4">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_430px] 2xl:grid-cols-[minmax(0,1fr)_470px]">
+        <div className="min-w-0 space-y-3">
           <LiveCameraGrid
             cameras={liveTiles}
             selectedCameraId={liveFrameState.activeCameraId}
@@ -95,7 +95,7 @@ export function ControlCenterPage() {
           <ActiveCasePanel selectedGroup={selectedGroup} caseBundle={caseBundle} onChanged={refreshAll} />
         </div>
 
-        <div className="min-w-0 xl:sticky xl:top-20 xl:self-start">
+        <div className="min-w-0 xl:sticky xl:top-16 xl:self-start">
           <LiveEventTimeline
             events={eventState.groups}
             selectedId={selectedGroup?.id ?? null}

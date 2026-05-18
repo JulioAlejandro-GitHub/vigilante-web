@@ -96,9 +96,9 @@ function cameraStatusLabel(status: ControlCenterCameraStatus) {
   if (status === "live") return "live";
   if (status === "online") return "online";
   if (status === "degraded") return "degraded";
-  if (status === "stale") return "sin snapshot reciente";
+  if (status === "stale") return "stale";
   if (status === "not_started_concurrency") return "no iniciada por concurrencia";
-  if (status === "no_snapshot") return "sin snapshot";
+  if (status === "no_snapshot") return "sin frame";
   return "offline";
 }
 
