@@ -79,7 +79,7 @@ function installFetch(events: TimelineEvent[], cases: Record<string, CaseDetail>
         const cameraIds = parsed.searchParams.getAll("camera_id");
         return jsonResponse(
           cameraIds.map((cameraId) =>
-            cameraId === "camera-4"
+            cameraId === "camera-3" || cameraId === "camera-4"
               ? {
                   camera_id: cameraId,
                   latest_frame_ref: null,
@@ -89,10 +89,13 @@ function installFetch(events: TimelineEvent[], cases: Record<string, CaseDetail>
                   content_type: null,
                   width: null,
                   height: null,
-                  state: "not_started_concurrency",
-                  reason: "not_started_by_concurrency_limit",
+                  state: cameraId === "camera-3" ? "no_frame_yet" : "not_started_concurrency",
+                  reason: cameraId === "camera-3" ? "no_ingested_frame" : "not_started_by_concurrency_limit",
                   media: null,
-                  ingestion: { camera_id: cameraId, is_desired_active: true, worker_state: "stopped", last_error: "not_started_by_concurrency_limit" },
+                  ingestion:
+                    cameraId === "camera-3"
+                      ? null
+                      : { camera_id: cameraId, is_desired_active: true, worker_state: "stopped", last_error: "not_started_by_concurrency_limit" },
                   metadata: {},
                 }
               : {
@@ -342,7 +345,8 @@ describe("ControlCenterPage", () => {
     expect(screen.getByText("Ver detalle completo")).toBeInTheDocument();
     await waitFor(() => expect(fetchUrls().some((url) => url.includes("/api/v1/cases/case-2?") && url.includes("expand=summary"))).toBe(true));
     expect(fetchUrls().some((url) => url.includes("/api/v1/cases/case-2/evidence") && url.includes("limit=6"))).toBe(true);
-    await waitFor(() => expect(fetchUrls().some((url) => url.includes("/api/v1/timeline/event-2/evidence") && url.includes("limit=1"))).toBe(true));
+    expect(fetchUrls().some((url) => url.includes("/api/v1/timeline/event-2/evidence") && url.includes("limit=1"))).toBe(false);
+    expect(fetchUrls().filter((url) => url.includes("/api/v1/cases/case-2/evidence")).length).toBe(1);
 
     fireEvent.click(cards[1]);
 

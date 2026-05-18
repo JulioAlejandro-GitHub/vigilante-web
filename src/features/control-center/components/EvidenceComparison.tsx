@@ -1,6 +1,6 @@
 import { GitCompareArrows } from "lucide-react";
 
-import { mainEvidenceUrl } from "./EvidenceThumbnail";
+import { thumbnailUrl } from "./EvidenceThumbnail";
 import type { ControlCenterEvidenceItem } from "../types/controlCenter.types";
 import { shortId } from "../../../utils/format";
 
@@ -28,7 +28,7 @@ export function EvidenceComparison({ selected, items, onSelect }: EvidenceCompar
       </div>
       <div className="grid gap-2 sm:grid-cols-3">
         {candidates.map((candidate) => {
-          const url = mainEvidenceUrl(candidate.item);
+          const url = thumbnailUrl(candidate.item);
           return (
             <button
               key={candidate.label}

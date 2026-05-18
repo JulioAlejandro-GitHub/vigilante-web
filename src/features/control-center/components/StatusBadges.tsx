@@ -79,7 +79,7 @@ function cameraStatusClasses(status: ControlCenterCameraStatus) {
   if (status === "online") return "border-teal-200 bg-teal-50 text-teal-800";
   if (status === "degraded" || status === "stale") return "border-amber-200 bg-amber-50 text-amber-800";
   if (status === "not_started_concurrency") return "border-sky-200 bg-sky-50 text-sky-800";
-  if (status === "no_snapshot") return "border-zinc-300 bg-zinc-100 text-zinc-600";
+  if (status === "no_frame_yet" || status === "no_snapshot") return "border-zinc-300 bg-zinc-100 text-zinc-600";
   return "border-rose-200 bg-rose-50 text-rose-800";
 }
 
@@ -88,7 +88,7 @@ function cameraStatusIcon(status: ControlCenterCameraStatus) {
   if (status === "online") return CheckCircle2;
   if (status === "degraded" || status === "stale") return Clock;
   if (status === "not_started_concurrency") return PauseCircle;
-  if (status === "no_snapshot") return AlertTriangle;
+  if (status === "no_frame_yet" || status === "no_snapshot") return AlertTriangle;
   return WifiOff;
 }
 
@@ -98,7 +98,7 @@ function cameraStatusLabel(status: ControlCenterCameraStatus) {
   if (status === "degraded") return "degraded";
   if (status === "stale") return "stale";
   if (status === "not_started_concurrency") return "no iniciada por concurrencia";
-  if (status === "no_snapshot") return "sin frame";
+  if (status === "no_frame_yet" || status === "no_snapshot") return "sin frame";
   return "offline";
 }
 

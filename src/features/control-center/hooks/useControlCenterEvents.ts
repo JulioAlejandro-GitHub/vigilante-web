@@ -8,11 +8,12 @@ import { asErrorMessage } from "../../../utils/format";
 interface UseControlCenterEventsOptions {
   limit?: number;
   pollMs?: number;
+  previewLimit?: number;
   filters?: Pick<TimelineListParams, "organization_id" | "site_id" | "camera_id" | "subject_id">;
   enabled?: boolean;
 }
 
-export function useControlCenterEvents({ limit = 20, pollMs = 15000, filters = {}, enabled = true }: UseControlCenterEventsOptions = {}) {
+export function useControlCenterEvents({ limit = 20, pollMs = 15000, previewLimit = 0, filters = {}, enabled = true }: UseControlCenterEventsOptions = {}) {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -110,7 +111,7 @@ export function useControlCenterEvents({ limit = 20, pollMs = 15000, filters = {
     return () => window.clearInterval(interval);
   }, [load, pollMs]);
 
-  const groups = usePriorityEvents(events, { enabled });
+  const groups = usePriorityEvents(events, { enabled, previewLimit });
 
   return {
     events,

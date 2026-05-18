@@ -10,7 +10,7 @@ interface UsePriorityEventsOptions {
   previewLimit?: number;
 }
 
-export function usePriorityEvents(events: TimelineEvent[], { enabled = true, previewLimit = 5 }: UsePriorityEventsOptions = {}) {
+export function usePriorityEvents(events: TimelineEvent[], { enabled = true, previewLimit = 0 }: UsePriorityEventsOptions = {}) {
   const baseGroups = useMemo(() => groupEvents(events), [events]);
   const [previewByEventId, setPreviewByEventId] = useState<Record<string, EvidenceMediaItem | null>>({});
 

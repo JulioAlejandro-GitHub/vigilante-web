@@ -1,7 +1,15 @@
 import type { CaseDetail, DashboardSummary, EvidenceMediaItem, HealthResponse, TimelineEvent } from "../../../types/api";
 import type { Permission } from "../../../types/session";
 
-export type ControlCenterCameraStatus = "live" | "online" | "degraded" | "stale" | "offline" | "no_snapshot" | "not_started_concurrency";
+export type ControlCenterCameraStatus =
+  | "live"
+  | "online"
+  | "degraded"
+  | "stale"
+  | "offline"
+  | "no_frame_yet"
+  | "no_snapshot"
+  | "not_started_concurrency";
 
 export interface ControlCenterCamera {
   camera_id: string;

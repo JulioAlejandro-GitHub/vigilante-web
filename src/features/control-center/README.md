@@ -19,10 +19,10 @@ Modulo visual aislado en `src/features/control-center`. La ruta `/control-center
 - `GET /api/v1/cameras?limit=6&offset=...`: camaras autorizadas, paginadas por el mosaico visible. La respuesta ya viene sanitizada por `vigilante-api`.
 - `GET /api/v1/cameras/latest-frames?camera_id=...&include_media=true`: ultimo frame ingestado por camara visible, resuelto via media sin depender de timeline/recognition.
 - `GET /api/v1/timeline?limit=20&offset=...&include_evidence=false`: eventos procesados recientes. El listado no resuelve media en bloque.
-- `GET /api/v1/timeline/{source_event_id}/evidence?limit=1&offset=0`: preview visual solo para los eventos priorizados que declaran evidencia y no traen media resuelta.
 - `GET /api/v1/cases/{case_id}?expand=summary&include_evidence=false`: resumen barato del caso seleccionado.
 - `GET /api/v1/cases/{case_id}/timeline?limit=6&offset=...&include_evidence=false`: cronologia paginada del caso seleccionado.
 - `GET /api/v1/cases/{case_id}/evidence?limit=6&offset=...&source_event_id=...`: evidencia visual paginada y resuelta solo para el reel visible.
+- `GET /api/v1/timeline/{source_event_id}/evidence?limit=6&offset=...`: evidencia visual paginada solo cuando el evento activo no tiene caso.
 - `POST /api/v1/cases/{case_id}/status`: marcar sospechoso y resolver benigno.
 - `POST /api/v1/cases/{case_id}/close` y `/reopen`: cierre y reapertura.
 
@@ -49,7 +49,7 @@ Los eventos se agrupan por `case_id`, luego por `subject_id` o `track_id` cuando
 
 ## Evidencia visual
 
-La evidencia completa no se resuelve desde el listado inicial. La cola pide solo thumbnails de los eventos más relevantes. El reel del caso pide paginas de 6 items al endpoint de evidencia del caso o del evento seleccionado, usa `loading="lazy"` y expone `Ver mas` para cargar la siguiente pagina. La imagen principal carga solo el item seleccionado.
+La evidencia no se resuelve desde el listado inicial ni desde la cola lateral. El reel del caso/evento activo es el único consumidor inicial de evidencia resuelta: pide paginas de 6 items al endpoint de evidencia del caso o del evento seleccionado, usa `loading="lazy"` y expone `Ver mas` para cargar la siguiente pagina. La imagen principal carga solo el item seleccionado.
 
 ## Signed URLs
 

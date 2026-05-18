@@ -84,6 +84,7 @@ export function normalizeLatestFrameStatus(frame: ControlCenterLatestFrame | nul
   if (frame.state === "stale") return "stale";
   if (frame.state === "offline") return "offline";
   if (frame.state === "not_started_concurrency") return "not_started_concurrency";
+  if (frame.state === "no_frame_yet") return "no_frame_yet";
   if (frame.state === "no_snapshot") return "no_snapshot";
   if (frame.state === "degraded") return "degraded";
   return frame.latest_frame_ref ? "online" : "no_snapshot";

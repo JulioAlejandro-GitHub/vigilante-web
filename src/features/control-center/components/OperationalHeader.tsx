@@ -17,7 +17,9 @@ interface OperationalHeaderProps {
 
 export function OperationalHeader({ overview, cameras, events, currentUser, lastUpdatedAt, onRefresh, refreshing }: OperationalHeaderProps) {
   const activeCameras = cameras.filter((item) => item.status === "live" || item.status === "online").length;
-  const degradedCameras = cameras.filter((item) => item.status === "degraded" || item.status === "stale" || item.status === "no_snapshot" || item.status === "not_started_concurrency").length;
+  const degradedCameras = cameras.filter(
+    (item) => item.status === "degraded" || item.status === "stale" || item.status === "no_frame_yet" || item.status === "no_snapshot" || item.status === "not_started_concurrency",
+  ).length;
   const criticalAlerts = events.filter((item) => item.priority.tier === "critical").length;
   const manualReview = events.filter((item) => item.priority.requiresManualReview).length;
   const pendingCases = (overview.summary?.open_cases ?? 0) + (overview.summary?.under_review_cases ?? 0);
