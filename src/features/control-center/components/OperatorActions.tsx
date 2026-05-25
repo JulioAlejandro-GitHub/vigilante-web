@@ -47,7 +47,7 @@ export function OperatorActions({ caseId, resourceContext, onChanged }: Operator
   return (
     <section className="rounded border border-zinc-200 bg-white p-3">
       <div>
-        <h3 className="text-sm font-semibold text-zinc-950">Acciones del operador</h3>
+        <h3 className="text-sm font-semibold text-zinc-950">Acciones del operador 1</h3>
         <p className="mt-0.5 text-xs text-zinc-500">Acciones críticas con confirmación y auditoría vía timeline del backend.</p>
       </div>
       <div className="mt-3">
